@@ -1,4 +1,7 @@
 #include <FastLED.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
 
 // LED Matrix Configuration
 #define LED_PIN     26        // GPIO pin connected to the LED data line
@@ -16,6 +19,14 @@
 // Display Configuration
 #define SCROLL_SPEED 100     // Milliseconds between scroll steps
 #define TEXT_COLOR CRGB::Red // Text color
+
+// WiFi Configuration
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+
+// Web Server Configuration
+const char* serverURL = "https://your-vercel-app.vercel.app/api/message";
+#define UPDATE_INTERVAL 30000  // Update message every 30 seconds
 
 CRGB leds[NUM_LEDS];
 
@@ -119,9 +130,10 @@ const uint8_t font5x7[96][5] = {
   {0x3C, 0x26, 0x23, 0x26, 0x3C}  // DEL
 };
 
-String message = "HELLO WORLD! ";
+String message = "CONNECTING... ";
 int scrollPosition = 0;
 unsigned long lastScrollTime = 0;
+unsigned long lastUpdateTime = 0;
 
 // Convert XY coordinates to LED index
 int XY(int x, int y) {
@@ -215,6 +227,61 @@ void scrollText() {
   }
 }
 
+// Connect to WiFi
+void connectToWiFi() {
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  
+  Serial.println();
+  Serial.println("WiFi connected!");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  
+  message = "WIFI CONNECTED! ";
+  scrollPosition = 0;
+}
+
+// Fetch message from web server
+void fetchMessage() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi not connected");
+    return;
+  }
+  
+  HTTPClient http;
+  http.begin(serverURL);
+  http.addHeader("Content-Type", "application/json");
+  
+  int httpResponseCode = http.GET();
+  
+  if (httpResponseCode > 0) {
+    String response = http.getString();
+    Serial.println("HTTP Response: " + response);
+    
+    // Parse JSON response
+    DynamicJsonDocument doc(1024);
+    deserializeJson(doc, response);
+    
+    if (doc.containsKey("message")) {
+      String newMessage = doc["message"].as<String>();
+      if (newMessage != message) {
+        message = newMessage + " ";
+        scrollPosition = 0;
+        Serial.println("New message received: " + message);
+      }
+    }
+  } else {
+    Serial.println("Error in HTTP request: " + String(httpResponseCode));
+  }
+  
+  http.end();
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println("WS2812B LED Matrix Display Starting...");
@@ -224,6 +291,12 @@ void setup() {
   FastLED.setBrightness(BRIGHTNESS);
   FastLED.clear();
   FastLED.show();
+  
+  // Connect to WiFi
+  connectToWiFi();
+  
+  // Fetch initial message
+  fetchMessage();
   
   Serial.println("Ready to display message!");
 }
@@ -235,11 +308,23 @@ void loop() {
     scrollText();
   }
   
-  // You can add Serial input handling here to change the message
+  // Check if it's time to update message from server
+  if (millis() - lastUpdateTime >= UPDATE_INTERVAL) {
+    lastUpdateTime = millis();
+    fetchMessage();
+  }
+  
+  // Keep WiFi connection alive
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi disconnected, reconnecting...");
+    connectToWiFi();
+  }
+  
+  // You can still add Serial input handling here to change the message manually
   if (Serial.available()) {
     message = Serial.readStringUntil('\n');
     message += " "; // Add space for better scrolling
     scrollPosition = 0; // Reset scroll position
-    Serial.println("New message: " + message);
+    Serial.println("Manual message: " + message);
   }
 }

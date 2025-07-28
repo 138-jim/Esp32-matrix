@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/message.js": {
+      "maxDuration": 10
+    }
+  },
+  "env": {
+    "LED_MESSAGE": "Welcome to ESP32 LED Matrix!"
+  }
+}
