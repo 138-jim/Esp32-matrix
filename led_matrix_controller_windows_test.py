@@ -13,6 +13,9 @@ import sys
 from typing import Tuple, List, Optional
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
+import tkinter as tk
+from tkinter import ttk
+import queue
 
 
 class LEDMatrix:
@@ -123,6 +126,135 @@ class LEDMatrix:
         }
 
 
+class MockDisplay:
+    """GUI display window for mock mode using tkinter"""
+    
+    def __init__(self, width: int = 16, height: int = 16, pixel_size: int = 20):
+        self.width = width
+        self.height = height
+        self.pixel_size = pixel_size
+        self.update_queue = queue.Queue()
+        
+        # Create window in separate thread
+        self.display_thread = threading.Thread(target=self._create_window, daemon=True)
+        self.display_thread.start()
+        
+        # Give window time to initialize
+        time.sleep(0.5)
+    
+    def _create_window(self):
+        """Create and run the tkinter window"""
+        self.root = tk.Tk()
+        self.root.title("LED Matrix Display - Mock Mode")
+        self.root.resizable(False, False)
+        
+        # Calculate window size
+        canvas_width = self.width * self.pixel_size
+        canvas_height = self.height * self.pixel_size
+        
+        # Create canvas for LED display
+        self.canvas = tk.Canvas(
+            self.root,
+            width=canvas_width,
+            height=canvas_height,
+            bg='black',
+            highlightthickness=1,
+            highlightbackground='gray'
+        )
+        self.canvas.pack(padx=10, pady=10)
+        
+        # Add status label
+        self.status_label = tk.Label(
+            self.root,
+            text="Mock Mode - LED Matrix Display",
+            font=('Arial', 10),
+            fg='green'
+        )
+        self.status_label.pack(pady=5)
+        
+        # Add info label
+        self.info_label = tk.Label(
+            self.root,
+            text=f"Matrix: {self.width}x{self.height} | Pixel Size: {self.pixel_size}px",
+            font=('Arial', 8),
+            fg='gray'
+        )
+        self.info_label.pack()
+        
+        # Initialize pixel rectangles
+        self.pixels = {}
+        for y in range(self.height):
+            for x in range(self.width):
+                x1 = x * self.pixel_size
+                y1 = y * self.pixel_size
+                x2 = x1 + self.pixel_size
+                y2 = y1 + self.pixel_size
+                
+                rect_id = self.canvas.create_rectangle(
+                    x1, y1, x2, y2,
+                    fill='black',
+                    outline='#333333',
+                    width=1
+                )
+                self.pixels[(x, y)] = rect_id
+        
+        # Set up periodic update check
+        self.root.after(16, self._check_updates)  # ~60 FPS
+        
+        # Handle window close
+        self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
+        
+        # Start the GUI loop
+        self.root.mainloop()
+    
+    def _check_updates(self):
+        """Check for display updates from the main thread"""
+        try:
+            while True:
+                matrix_buffer = self.update_queue.get_nowait()
+                self._update_display(matrix_buffer)
+        except queue.Empty:
+            pass
+        
+        # Schedule next check
+        if self.root and self.root.winfo_exists():
+            self.root.after(16, self._check_updates)
+    
+    def _update_display(self, matrix_buffer):
+        """Update the display with new matrix data"""
+        for y in range(self.height):
+            for x in range(self.width):
+                if y < len(matrix_buffer) and x < len(matrix_buffer[y]):
+                    r, g, b = matrix_buffer[y][x]
+                    color = f"#{r:02x}{g:02x}{b:02x}"
+                    
+                    if (x, y) in self.pixels:
+                        self.canvas.itemconfig(self.pixels[(x, y)], fill=color)
+    
+    def _on_closing(self):
+        """Handle window close event"""
+        if self.root:
+            self.root.quit()
+            self.root.destroy()
+    
+    def update(self, matrix: 'LEDMatrix'):
+        """Update display with matrix data (called from main thread)"""
+        try:
+            # Send matrix buffer to display thread
+            self.update_queue.put(matrix.buffer.copy())
+        except:
+            # Display thread may have ended
+            pass
+    
+    def close(self):
+        """Close the display window"""
+        try:
+            if hasattr(self, 'root') and self.root:
+                self.root.after(0, self._on_closing)
+        except:
+            pass
+
+
 class PatternGenerator:
     @staticmethod
     def rainbow(matrix: LEDMatrix, offset: float = 0):
@@ -166,6 +298,7 @@ class ESP32Controller:
         self.serial_connection: Optional[serial.Serial] = None
         self.connected = False
         self.mock_mode = mock_mode
+        self.mock_display = None
     
     def connect(self) -> bool:
         """Connect to ESP32 (real or mock)"""
@@ -192,12 +325,24 @@ class ESP32Controller:
         """Connect in mock mode"""
         self.connected = True
         print(f"Mock: Connected to ESP32 on {self.port}")
+        
+        # Create GUI display window for mock mode
+        try:
+            self.mock_display = MockDisplay(16, 16, 25)  # 16x16 matrix, 25px per LED
+            print("Mock: GUI display window opened")
+        except Exception as e:
+            print(f"Mock: Failed to open GUI display, falling back to ASCII: {e}")
+            self.mock_display = None
+        
         return True
     
     def disconnect(self):
         """Disconnect from ESP32"""
         if self.mock_mode:
             self.connected = False
+            if self.mock_display:
+                self.mock_display.close()
+                self.mock_display = None
             print("Mock: Disconnected from ESP32")
         else:
             if self.serial_connection and self.serial_connection.is_open:
@@ -211,7 +356,11 @@ class ESP32Controller:
             return False
         
         if self.mock_mode:
-            self._display_matrix_ascii(matrix)
+            # Try GUI display first, fall back to ASCII if needed
+            if self.mock_display:
+                self.mock_display.update(matrix)
+            else:
+                self._display_matrix_ascii(matrix)
             return True
         
         try:
@@ -372,15 +521,27 @@ def main():
     # Parse command line arguments for port selection
     import argparse
     parser = argparse.ArgumentParser(description="LED Matrix Controller")
-    parser.add_argument('--port', default='COM3', help='Serial port (default: COM3 on Windows, /dev/ttyUSB0 on Linux)')
+    parser.add_argument('--port', default='auto', help='Serial port (default: auto-detect based on platform)')
     parser.add_argument('--mock', action='store_true', help='Force mock mode (no hardware)')
+    parser.add_argument('--gui', action='store_true', help='Force GUI display in mock mode')
+    parser.add_argument('--ascii', action='store_true', help='Force ASCII display in mock mode')
     args = parser.parse_args()
     
     # Auto-detect platform and set default port
-    if sys.platform.startswith('win'):
-        default_port = args.port if args.port != 'COM3' else 'COM3'
+    if args.port == 'auto':
+        if sys.platform.startswith('win'):
+            default_port = 'COM3'
+        else:
+            default_port = '/dev/ttyUSB0'
     else:
-        default_port = args.port if args.port != 'COM3' else '/dev/ttyUSB0'
+        default_port = args.port
+    
+    # Auto-enable mock mode on Windows if no hardware likely present
+    auto_mock = False
+    if sys.platform.startswith('win') and not args.mock:
+        print("Windows detected - mock mode recommended for testing")
+        print("Use --mock flag to enable mock mode, or specify --port COM# for hardware")
+        auto_mock = True
     
     # Initialize components
     matrix = LEDMatrix(16, 16)
@@ -390,7 +551,14 @@ def main():
     # Connect to ESP32 (real or mock)
     if not controller.connect():
         print("Failed to connect to ESP32")
-        return
+        if auto_mock:
+            print("Retrying with mock mode...")
+            controller.mock_mode = True
+            if not controller.connect():
+                print("Failed to start mock mode")
+                return
+        else:
+            return
     
     # Initialize scrolling text
     scroller = ScrollingText("HELLO WORLD!", matrix, (255, 0, 0))
@@ -403,8 +571,14 @@ def main():
     
     try:
         mode_text = "MOCK MODE" if controller.mock_mode else "HARDWARE MODE"
-        print(f"\nRunning in {mode_text}")
+        display_text = "GUI DISPLAY" if (controller.mock_mode and controller.mock_display) else "ASCII DISPLAY" if controller.mock_mode else "HARDWARE"
+        
+        print(f"\nRunning in {mode_text} with {display_text}")
         print(f"Port: {controller.port}")
+        
+        if controller.mock_mode and controller.mock_display:
+            print("✓ GUI display window opened - watch the separate window for LED matrix visualization")
+        
         print("\nCommands:")
         print("  text:<message> - Set scrolling text")
         print("  color:<r>,<g>,<b> - Set text color")
