@@ -1,0 +1,27 @@
+[Unit]
+Description=LED Matrix Auto-Updater Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/jim/Esp32-matrix
+ExecStart=/usr/bin/python3 /home/jim/Esp32-matrix/auto_updater.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment variables
+Environment=PYTHONUNBUFFERED=1
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/home/jim/Esp32-matrix /tmp
+
+[Install]
+WantedBy=multi-user.target
