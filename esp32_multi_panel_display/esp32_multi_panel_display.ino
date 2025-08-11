@@ -5,14 +5,19 @@
 #define MAX_LEDS    2048      // Maximum supported LEDs (e.g., 64x32 or 32x64)
 #define DEFAULT_BRIGHTNESS  50        // Default LED brightness (0-255)
 
-// Default single panel configuration
+// Default configuration - supports single 32x32 panel or 4x 16x16 panels in 2x2 grid
 #define DEFAULT_WIDTH  32
 #define DEFAULT_HEIGHT 32
 
-// Display orientation settings
+// Display orientation settings for your specific LED panel wiring
 #define FLIP_HORIZONTAL true  // Set to true if text appears mirror-flipped
 #define FLIP_VERTICAL   false // Set to true if text appears upside-down
 #define SERPENTINE_LAYOUT true // Set to false if your LEDs go row-by-row instead of zigzag
+
+// NOTE: For 4x 16x16 panels in 2x2 grid:
+// - All 1024 LEDs should be connected in a single data chain
+// - The Python controller handles the logical panel mapping
+// - This code treats it as one continuous 32x32 matrix
 
 // Dynamic configuration variables
 int MATRIX_WIDTH = DEFAULT_WIDTH;
@@ -367,7 +372,10 @@ void setup() {
   Serial.print("Default size: ");
   Serial.print(MATRIX_WIDTH);
   Serial.print("x");
-  Serial.println(MATRIX_HEIGHT);
+  Serial.print(MATRIX_HEIGHT);
+  Serial.print(" (");
+  Serial.print(NUM_LEDS);
+  Serial.println(" LEDs)");
   Serial.print("Max supported LEDs: ");
   Serial.println(MAX_LEDS);
   Serial.print("Available memory: ");
