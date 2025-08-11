@@ -326,9 +326,12 @@ class MultiPanelSystem:
         temp_matrix = LEDMatrix(self.total_width, self.total_height)
         pattern_func(temp_matrix, offset)
         
+        print(f"Pattern debug: {pattern_func.__name__} at offset {offset:.1f}, display size: {self.total_width}x{self.total_height}")
+        
         # Distribute to individual panels
-        for panel in self.panels:
+        for i, panel in enumerate(self.panels):
             panel.matrix.clear()
+            panel_pixels = 0
             
             # Copy the relevant section from temp_matrix to this panel
             for y in range(panel.height):
@@ -342,6 +345,10 @@ class MultiPanelSystem:
                         src_x >= 0 and src_y >= 0):
                         r, g, b = temp_matrix.get_pixel(src_x, src_y)
                         panel.matrix.set_pixel(x, y, r, g, b)
+                        if r > 0 or g > 0 or b > 0:  # Count non-black pixels
+                            panel_pixels += 1
+            
+            print(f"Panel {i+1} at ({panel.x},{panel.y}): {panel_pixels} colored pixels out of {panel.width*panel.height}")
     
     def apply_text_to_combined(self, text: str, color: Tuple[int, int, int], scroll_offset: int = 0):
         """Apply scrolling text across the combined display"""
@@ -355,9 +362,14 @@ class MultiPanelSystem:
         # Draw text with scroll offset on the full display
         temp_matrix.draw_text(text, scroll_offset, 0, color)
         
+        print(f"Text debug: '{text}' at offset {scroll_offset}, display size: {self.total_width}x{self.total_height}")
+        print(f"Panel count: {len(self.panels)}")
+        
         # Distribute to panels
-        for panel in self.panels:
+        pixel_count = 0
+        for i, panel in enumerate(self.panels):
             panel.matrix.clear()
+            panel_pixels = 0
             
             # Copy the relevant section from temp_matrix to this panel
             # Note: panel rotation is handled later in render_combined_frame
@@ -372,6 +384,13 @@ class MultiPanelSystem:
                         src_x >= 0 and src_y >= 0):
                         r, g, b = temp_matrix.get_pixel(src_x, src_y)
                         panel.matrix.set_pixel(x, y, r, g, b)
+                        if r > 0 or g > 0 or b > 0:  # Count non-black pixels
+                            panel_pixels += 1
+                        pixel_count += 1
+            
+            print(f"Panel {i+1} at ({panel.x},{panel.y}): {panel_pixels} colored pixels out of {panel.width*panel.height}")
+        
+        print(f"Total pixels processed: {pixel_count}")
     
     def save_configuration(self, filename: str):
         """Save panel configuration to JSON file"""
@@ -1278,6 +1297,23 @@ class MultiPanelControllerGUI:
             
             # Render combined frame
             combined_frame = self.panel_system.render_combined_frame()
+            
+            # Debug: Check if combined frame has any data
+            if combined_frame:
+                non_black_pixels = 0
+                for y in range(combined_frame.height):
+                    for x in range(combined_frame.width):
+                        r, g, b = combined_frame.get_pixel(x, y)
+                        if r > 0 or g > 0 or b > 0:
+                            non_black_pixels += 1
+                
+                if hasattr(self, '_last_pixel_count'):
+                    if non_black_pixels != self._last_pixel_count:
+                        print(f"Combined frame: {non_black_pixels} colored pixels out of {combined_frame.width*combined_frame.height}")
+                        self._last_pixel_count = non_black_pixels
+                else:
+                    print(f"Combined frame: {non_black_pixels} colored pixels out of {combined_frame.width*combined_frame.height}")
+                    self._last_pixel_count = non_black_pixels
             
             # Send to ESP32 (but don't flood it)
             if combined_frame and self.controller and self.controller.connected:
