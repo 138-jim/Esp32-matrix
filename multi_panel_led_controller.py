@@ -437,33 +437,61 @@ class ESP32MultiPanelController:
             print(f"Serial connection established")
             
             # Test connection
-            time.sleep(2)  # Wait for ESP32 to initialize
+            time.sleep(3)  # Wait longer for ESP32 to initialize
             
             # Clear any pending data
             self.serial_connection.reset_input_buffer()
+            print("Testing ESP32 connection...")
             
-            # Send INFO command and read multi-line response
-            self.serial_connection.write(b"INFO\n")
-            time.sleep(0.5)  # Give ESP32 time to respond
+            # Try simple commands first
+            test_commands = ["INFO", "STATUS", "CLEAR"]
             
-            response_lines = []
-            start_time = time.time()
-            while time.time() - start_time < 3.0:  # 3 second timeout
-                if self.serial_connection.in_waiting > 0:
-                    line = self.serial_connection.readline().decode().strip()
-                    if line:
-                        response_lines.append(line)
-                        if "ESP32 Multi-Panel" in line:
-                            self.connected = True
-                            print(f"✓ Connected to ESP32 on {self.port}")
-                            print(f"✓ Device: {line}")
-                            return True
+            for cmd in test_commands:
+                print(f"Sending: {cmd}")
+                self.serial_connection.write(f"{cmd}\n".encode())
+                self.serial_connection.flush()
+                time.sleep(1.0)  # Give ESP32 time to respond
+                
+                response_lines = []
+                start_time = time.time()
+                
+                while time.time() - start_time < 5.0:  # 5 second timeout per command
+                    if self.serial_connection.in_waiting > 0:
+                        try:
+                            line = self.serial_connection.readline().decode().strip()
+                            if line:
+                                response_lines.append(line)
+                                print(f"ESP32 → {line}")
+                                
+                                # Check for valid responses
+                                if ("ESP32 Multi-Panel" in line or 
+                                    "STATUS:" in line or 
+                                    "CLEAR_OK" in line or
+                                    "=== ESP32" in line):
+                                    self.connected = True
+                                    print(f"✓ Connected to ESP32 on {self.port}")
+                                    print(f"✓ Device responded to: {cmd}")
+                                    return True
+                        except UnicodeDecodeError:
+                            print("Received non-text data (possible boot message)")
+                    else:
+                        time.sleep(0.1)
+                
+                if response_lines:
+                    print(f"Responses to {cmd}: {response_lines}")
                 else:
-                    time.sleep(0.1)
+                    print(f"No response to {cmd}")
+                
+                # Clear buffer between commands
+                self.serial_connection.reset_input_buffer()
             
-            print(f"✗ Invalid or no response from {self.port}")
-            if response_lines:
-                print(f"Received: {response_lines}")
+            print(f"✗ No valid response from ESP32 on {self.port}")
+            print("Troubleshooting:")
+            print("1. Verify ESP32 is flashed with esp32_multi_panel_display.ino")
+            print("2. Check if ESP32 is booting properly (blue LED flashing)")
+            print("3. Try pressing ESP32 reset button")
+            print("4. Check serial monitor in Arduino IDE first")
+            print("5. Verify correct COM port in Device Manager")
             return False
                 
         except Exception as e:
@@ -811,6 +839,7 @@ class MultiPanelControllerGUI:
         ttk.Checkbutton(conn_frame, text="Mock Mode", variable=self.mock_mode_var).pack()
         
         ttk.Button(conn_frame, text="Connect", command=self.connect_esp32).pack(pady=5)
+        ttk.Button(conn_frame, text="Test Connection", command=self.test_esp32).pack(pady=2)
         ttk.Button(conn_frame, text="Disconnect", command=self.disconnect_esp32).pack()
         
         # Display mode controls
@@ -1065,6 +1094,58 @@ class MultiPanelControllerGUI:
                 self.status_text.insert(tk.END, "✓ Connected (no panels configured)\n")
         else:
             self.status_text.insert(tk.END, "✗ Connection failed\n")
+        
+        self.status_text.see(tk.END)
+    
+    def test_esp32(self):
+        """Test ESP32 connection without full connect"""
+        port = self.port_var.get()
+        
+        try:
+            self.status_text.insert(tk.END, f"Testing connection to {port}...\n")
+            self.status_text.see(tk.END)
+            
+            test_serial = serial.Serial(
+                port=port,
+                baudrate=115200,
+                timeout=3.0
+            )
+            
+            time.sleep(2)  # Wait for ESP32
+            
+            # Try to read any existing output
+            test_serial.reset_input_buffer()
+            time.sleep(0.5)
+            
+            if test_serial.in_waiting > 0:
+                data = test_serial.read_all().decode('utf-8', errors='ignore')
+                self.status_text.insert(tk.END, f"ESP32 output:\n{data}\n")
+            
+            # Try sending a simple command
+            test_serial.write(b"INFO\n")
+            test_serial.flush()
+            time.sleep(2)
+            
+            response = ""
+            start_time = time.time()
+            while time.time() - start_time < 3:
+                if test_serial.in_waiting > 0:
+                    response += test_serial.read_all().decode('utf-8', errors='ignore')
+                time.sleep(0.1)
+            
+            if response:
+                self.status_text.insert(tk.END, f"ESP32 response:\n{response}\n")
+                if "ESP32" in response:
+                    self.status_text.insert(tk.END, "✓ ESP32 detected!\n")
+                else:
+                    self.status_text.insert(tk.END, "? Unknown device response\n")
+            else:
+                self.status_text.insert(tk.END, "✗ No response from ESP32\n")
+            
+            test_serial.close()
+            
+        except Exception as e:
+            self.status_text.insert(tk.END, f"Test failed: {e}\n")
         
         self.status_text.see(tk.END)
     
