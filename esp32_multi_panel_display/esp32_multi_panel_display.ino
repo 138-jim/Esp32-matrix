@@ -6,8 +6,8 @@
 #define DEFAULT_BRIGHTNESS  50        // Default LED brightness (0-255)
 
 // Default single panel configuration
-#define DEFAULT_WIDTH  16
-#define DEFAULT_HEIGHT 16
+#define DEFAULT_WIDTH  32
+#define DEFAULT_HEIGHT 32
 
 // Display orientation settings
 #define FLIP_HORIZONTAL true  // Set to true if text appears mirror-flipped
