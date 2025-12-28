@@ -149,7 +149,8 @@ class LEDDisplaySystem:
             # Initialize sleep scheduler
             logger.info("Initializing sleep scheduler")
             self.sleep_scheduler = SleepScheduler(
-                set_brightness_callback=self.led_driver.set_brightness
+                set_brightness_callback=self.led_driver.set_brightness,
+                get_brightness_callback=self.led_driver.get_brightness
             )
             self.sleep_scheduler.start()
 

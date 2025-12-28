@@ -5,18 +5,41 @@ let currentConfig = null;
 // API base URL
 const API_BASE = window.location.origin;
 
+// Update clock display
+function updateClock() {
+    const now = new Date();
+
+    // Format time as HH:MM:SS
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const timeString = `${hours}:${minutes}:${seconds}`;
+
+    // Format date as "Day, Month DD, YYYY"
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const dateString = now.toLocaleDateString('en-US', options);
+
+    // Update the display
+    document.getElementById('clockTime').textContent = timeString;
+    document.getElementById('clockDate').textContent = dateString;
+}
+
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
     console.log('LED Display Driver UI loaded');
     refreshConfig();
     refreshStatus();
     loadSleepSchedule();
+    updateClock();  // Initial clock update
 
     // Auto-refresh status every 2 seconds
     setInterval(refreshStatus, 2000);
 
     // Auto-refresh sleep schedule every 30 seconds
     setInterval(loadSleepSchedule, 30000);
+
+    // Update clock every second
+    setInterval(updateClock, 1000);
 });
 
 // Load and display configuration

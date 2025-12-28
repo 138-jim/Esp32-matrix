@@ -19,14 +19,16 @@ class SleepScheduler:
     Turns display off and on at specified times
     """
 
-    def __init__(self, set_brightness_callback: Callable[[int], None]):
+    def __init__(self, set_brightness_callback: Callable[[int], None], get_brightness_callback: Callable[[], int]):
         """
         Initialize sleep scheduler
 
         Args:
             set_brightness_callback: Function to call to set brightness
+            get_brightness_callback: Function to get current brightness
         """
         self.set_brightness = set_brightness_callback
+        self.get_brightness = get_brightness_callback
         self.enabled = False
         self.off_time: Optional[dt_time] = None  # Time to turn off (e.g., 23:00)
         self.on_time: Optional[dt_time] = None   # Time to turn on (e.g., 07:00)
@@ -97,15 +99,17 @@ class SleepScheduler:
                     # Check if it's time to sleep
                     if self._should_sleep(current_time):
                         if not self.is_sleeping:
-                            logger.info("Sleep time - turning off display")
-                            self.saved_brightness = 128  # Could get actual brightness
+                            logger.info(f"Sleep time - turning off display at {current_time.strftime('%H:%M:%S')}")
+                            self.saved_brightness = self.get_brightness()  # Save current brightness
+                            logger.info(f"Saved brightness: {self.saved_brightness}")
                             self.set_brightness(0)
                             self.is_sleeping = True
 
                     # Check if it's time to wake
                     elif self._should_wake(current_time):
                         if self.is_sleeping:
-                            logger.info("Wake time - turning on display")
+                            logger.info(f"Wake time - turning on display at {current_time.strftime('%H:%M:%S')}")
+                            logger.info(f"Restoring brightness to: {self.saved_brightness}")
                             self.set_brightness(self.saved_brightness)
                             self.is_sleeping = False
 
@@ -122,11 +126,13 @@ class SleepScheduler:
             return False
 
         # Handle schedules that span midnight
-        if self.off_time < self.on_time:
-            # Normal case: off_time is before on_time (e.g., 23:00 to 07:00)
+        if self.off_time > self.on_time:
+            # Schedule spans midnight (e.g., off at 23:00, on at 07:00)
+            # Sleep when: current >= 23:00 OR current < 07:00
             return current_time >= self.off_time or current_time < self.on_time
         else:
-            # Reverse case: off_time is after on_time (e.g., 07:00 to 23:00 means sleep during day)
+            # Schedule within same day (e.g., off at 01:00, on at 06:00)
+            # Sleep when: 01:00 <= current < 06:00
             return self.off_time <= current_time < self.on_time
 
     def _should_wake(self, current_time: dt_time) -> bool:
