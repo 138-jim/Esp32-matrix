@@ -28,7 +28,7 @@ apt install -y python3 python3-pip python3-dev scons swig git
 
 echo ""
 echo "Installing Python dependencies..."
-pip3 install -r requirements.txt
+pip3 install -r requirements.txt --break-system-packages
 
 echo ""
 echo "Setting up GPIO permissions..."
