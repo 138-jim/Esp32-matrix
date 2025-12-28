@@ -349,7 +349,7 @@ def elapsed_time(width: int, height: int, offset: float = 0) -> np.ndarray:
     Display elapsed time since a specific date
 
     Shows time elapsed since July 29, 2025 00:00:00
-    Uses large, blocky numbers readable on LED matrix
+    Format: "128D 10H 12M" in large blocky text
 
     Args:
         width: Frame width
@@ -367,68 +367,62 @@ def elapsed_time(width: int, height: int, offset: float = 0) -> np.ndarray:
     now = datetime.now()
     elapsed = now - reference_date
 
-    # Format the time based on duration
-    total_seconds = elapsed.total_seconds()
-    days = abs(elapsed.days)  # Use absolute value to handle future dates
-    hours = int(abs(total_seconds) // 3600)
-    minutes = int((abs(total_seconds) % 3600) // 60)
+    # Format the time
+    total_seconds = abs(elapsed.total_seconds())
+    days = int(total_seconds // 86400)
+    hours = int((total_seconds % 86400) // 3600)
+    minutes = int((total_seconds % 3600) // 60)
 
-    # Determine if counting up or down
-    is_future = total_seconds < 0
-
-    # Choose format and scale - optimized for 32x32 display
-    if days < 1:
-        # Less than a day: show hours
-        if hours < 10:
-            text = f"{hours}h"
-            scale = 3  # Larger for single digit
-        else:
-            text = f"{hours}h"
-            scale = 2
-    elif days < 100:
-        # 1-99 days
-        text = f"{days}d"
-        scale = 2 if days < 10 else 2
+    # Format text with D H M labels
+    # For 32x32 display, we need to be concise
+    if days > 0:
+        line1 = f"{days}D {hours}H"
+        line2 = f"{minutes}M"
     else:
-        # 100+ days
-        text = f"{days}d"
-        scale = 1
+        # Less than a day
+        line1 = f"{hours}H"
+        line2 = f"{minutes}M"
 
-    # Create PIL image for text rendering - use larger canvas then scale down
-    render_scale = 4
-    img = Image.new('RGB', (width * render_scale, height * render_scale), color=(0, 0, 0))
+    # Create high-res image for better text rendering
+    scale = 8
+    img = Image.new('RGB', (width * scale, height * scale), color=(0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    # Use default bitmap font (blocky and readable)
+    # Use default bitmap font
     font = ImageFont.load_default()
-
-    # Calculate text size and position for centering
-    bbox = draw.textbbox((0, 0), text, font=font)
-    text_width = bbox[2] - bbox[0]
-    text_height = bbox[3] - bbox[1]
-
-    # Center position on the larger canvas
-    x = ((width * render_scale) - text_width) // 2
-    y = ((height * render_scale) - text_height) // 2
 
     # Animated color based on offset
     hue = (offset * 0.1) % 1.0
     r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
     color = (int(r * 255), int(g * 255), int(b * 255))
 
-    # Draw the text on large canvas
-    draw.text((x, y), text, fill=color, font=font)
+    # Calculate text sizes
+    bbox1 = draw.textbbox((0, 0), line1, font=font)
+    bbox2 = draw.textbbox((0, 0), line2, font=font)
 
-    # Scale down to fit display using nearest neighbor (keeps it blocky)
+    text1_width = bbox1[2] - bbox1[0]
+    text1_height = bbox1[3] - bbox1[1]
+    text2_width = bbox2[2] - bbox2[0]
+    text2_height = bbox2[3] - bbox2[1]
+
+    # Position text in two lines, centered
+    total_height = text1_height + text2_height + scale * 2  # Add spacing
+    y_start = ((height * scale) - total_height) // 2
+
+    # Draw first line (centered)
+    x1 = ((width * scale) - text1_width) // 2
+    draw.text((x1, y_start), line1, fill=color, font=font)
+
+    # Draw second line (centered)
+    x2 = ((width * scale) - text2_width) // 2
+    y2 = y_start + text1_height + scale * 2
+    draw.text((x2, y2), line2, fill=color, font=font)
+
+    # Scale down using nearest neighbor to keep it pixelated
     img = img.resize((width, height), Image.NEAREST)
 
-    # Convert PIL image to numpy array
+    # Convert to numpy array
     frame = np.array(img, dtype=np.uint8)
-
-    # Add indicator if counting down to future date
-    if is_future:
-        # Add small indicator in corner that it's counting down
-        frame[0:2, 0:2] = [255, 0, 0]  # Red dot in top-left
 
     return frame
 
