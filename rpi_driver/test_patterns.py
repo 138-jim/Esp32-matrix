@@ -349,7 +349,7 @@ def elapsed_time(width: int, height: int, offset: float = 0) -> np.ndarray:
     Display elapsed time since a specific date
 
     Shows time elapsed since July 29, 2025 00:00:00
-    Format: "128D 10H 12M" in large blocky text
+    Format: Shows numbers in large format
 
     Args:
         width: Frame width
@@ -373,53 +373,58 @@ def elapsed_time(width: int, height: int, offset: float = 0) -> np.ndarray:
     hours = int((total_seconds % 86400) // 3600)
     minutes = int((total_seconds % 3600) // 60)
 
-    # Format text with D H M labels
-    # For 32x32 display, we need to be concise
-    if days > 0:
-        line1 = f"{days}D {hours}H"
-        line2 = f"{minutes}M"
-    else:
-        # Less than a day
-        line1 = f"{hours}H"
-        line2 = f"{minutes}M"
-
-    # Create high-res image for better text rendering
-    scale = 8
-    img = Image.new('RGB', (width * scale, height * scale), color=(0, 0, 0))
-    draw = ImageDraw.Draw(img)
-
-    # Use default bitmap font
-    font = ImageFont.load_default()
-
     # Animated color based on offset
     hue = (offset * 0.1) % 1.0
     r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
     color = (int(r * 255), int(g * 255), int(b * 255))
 
-    # Calculate text sizes
-    bbox1 = draw.textbbox((0, 0), line1, font=font)
-    bbox2 = draw.textbbox((0, 0), line2, font=font)
+    # For 32x32, split into 3 lines
+    # Try to use the largest possible font
+    try:
+        # Try to load a larger TrueType font
+        font_size = 14  # Large font for readability
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", font_size)
+    except:
+        # Fallback to default
+        font = ImageFont.load_default()
+        font_size = 10
 
-    text1_width = bbox1[2] - bbox1[0]
-    text1_height = bbox1[3] - bbox1[1]
-    text2_width = bbox2[2] - bbox2[0]
-    text2_height = bbox2[3] - bbox2[1]
+    # Create image at display resolution
+    img = Image.new('RGB', (width, height), color=(0, 0, 0))
+    draw = ImageDraw.Draw(img)
 
-    # Position text in two lines, centered
-    total_height = text1_height + text2_height + scale * 2  # Add spacing
-    y_start = ((height * scale) - total_height) // 2
+    # Format text - make it as simple as possible for the small display
+    if days > 0:
+        line1 = f"{days}D"
+        line2 = f"{hours}H"
+        line3 = f"{minutes}M"
+    else:
+        # Less than a day - show hours and minutes only
+        line1 = f"{hours}H"
+        line2 = f"{minutes}M"
+        line3 = ""
 
-    # Draw first line (centered)
-    x1 = ((width * scale) - text1_width) // 2
-    draw.text((x1, y_start), line1, fill=color, font=font)
+    # Draw text on three lines, evenly spaced
+    y_spacing = height // 4
 
-    # Draw second line (centered)
-    x2 = ((width * scale) - text2_width) // 2
-    y2 = y_start + text1_height + scale * 2
-    draw.text((x2, y2), line2, fill=color, font=font)
+    # Line 1
+    bbox = draw.textbbox((0, 0), line1, font=font)
+    text_width = bbox[2] - bbox[0]
+    x = (width - text_width) // 2
+    draw.text((x, y_spacing), line1, fill=color, font=font)
 
-    # Scale down using nearest neighbor to keep it pixelated
-    img = img.resize((width, height), Image.NEAREST)
+    # Line 2
+    bbox = draw.textbbox((0, 0), line2, font=font)
+    text_width = bbox[2] - bbox[0]
+    x = (width - text_width) // 2
+    draw.text((x, y_spacing * 2), line2, fill=color, font=font)
+
+    # Line 3 (if exists)
+    if line3:
+        bbox = draw.textbbox((0, 0), line3, font=font)
+        text_width = bbox[2] - bbox[0]
+        x = (width - text_width) // 2
+        draw.text((x, y_spacing * 3), line3, fill=color, font=font)
 
     # Convert to numpy array
     frame = np.array(img, dtype=np.uint8)
