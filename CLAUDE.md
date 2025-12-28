@@ -46,6 +46,15 @@ requests.post('http://192.168.1.15:8080/api/frame',
               data=frame.tobytes())
 ```
 
+**Enable auto-updates from GitHub:**
+```bash
+# Install auto-updater service (automatically pulls and restarts on git push)
+sudo ./install_auto_updater.sh
+
+# View logs
+sudo journalctl -u auto-updater.service -f
+```
+
 ## Architecture
 
 ### Direct GPIO Control

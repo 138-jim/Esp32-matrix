@@ -14,19 +14,27 @@ from datetime import datetime
 from pathlib import Path
 
 class AutoUpdater:
-    def __init__(self, 
+    def __init__(self,
                  repo_path: str = "/home/jim/Esp32-matrix",
-                 target_script: str = "led_matrix_controller.py",
+                 service_name: str = "led-driver.service",
                  check_interval: int = 30,
-                 log_file: str = "/tmp/auto_updater.log"):
-        
+                 log_file: str = "/tmp/auto_updater.log",
+                 watch_paths: list = None):
+
         self.repo_path = Path(repo_path)
-        self.target_script = target_script
+        self.service_name = service_name
         self.check_interval = check_interval
         self.log_file = log_file
-        self.current_process = None
         self.current_commit = None
         self.running = True
+
+        # Paths to watch for changes (if any of these change, restart)
+        self.watch_paths = watch_paths or [
+            "rpi_driver/",
+            "static/",
+            "configs/",
+            "requirements.txt"
+        ]
         
         # Setup logging
         logging.basicConfig(
@@ -47,8 +55,6 @@ class AutoUpdater:
         """Handle shutdown signals gracefully"""
         self.logger.info(f"Received signal {signum}, shutting down...")
         self.running = False
-        if self.current_process:
-            self._stop_current_process()
     
     def _get_current_commit(self) -> str:
         """Get the current git commit hash"""
@@ -86,9 +92,9 @@ class AutoUpdater:
             )
             remote_commit = result.stdout.strip()
             
-            # Check if target script was modified
+            # Check if watched paths were modified
             if self.current_commit and remote_commit != self.current_commit:
-                # Check if our target script was modified in the new commits
+                # Check if any watched paths were modified in the new commits
                 result = subprocess.run(
                     ["git", "diff", "--name-only", f"{self.current_commit}..{remote_commit}"],
                     cwd=self.repo_path,
@@ -96,15 +102,25 @@ class AutoUpdater:
                     text=True,
                     check=True
                 )
-                
+
                 changed_files = result.stdout.strip().split('\n')
-                target_changed = any(self.target_script in file for file in changed_files)
-                
-                if target_changed:
-                    self.logger.info(f"Target script {self.target_script} updated in commit {remote_commit}")
+
+                # Check if any changed file is in our watch paths
+                relevant_change = False
+                for changed_file in changed_files:
+                    for watch_path in self.watch_paths:
+                        if changed_file.startswith(watch_path):
+                            relevant_change = True
+                            self.logger.info(f"Watched file changed: {changed_file}")
+                            break
+                    if relevant_change:
+                        break
+
+                if relevant_change:
+                    self.logger.info(f"Relevant changes detected in commit {remote_commit}")
                     return True
                 else:
-                    self.logger.info(f"New commit {remote_commit} found, but target script unchanged")
+                    self.logger.info(f"New commit {remote_commit} found, but no watched paths changed")
                     self.current_commit = remote_commit
                     return False
             
@@ -130,145 +146,118 @@ class AutoUpdater:
             self.logger.error(f"Failed to pull updates: {e}")
             return False
     
-    def _stop_current_process(self):
-        """Stop the currently running script process"""
-        if self.current_process and self.current_process.poll() is None:
-            self.logger.info("Stopping current process...")
-            self.current_process.terminate()
-            
-            # Wait up to 10 seconds for graceful shutdown
-            try:
-                self.current_process.wait(timeout=10)
-                self.logger.info("Process stopped gracefully")
-            except subprocess.TimeoutExpired:
-                self.logger.warning("Process didn't stop gracefully, killing...")
-                self.current_process.kill()
-                self.current_process.wait()
-            
-            self.current_process = None
-    
-    def _start_script(self) -> bool:
-        """Start the target script"""
-        script_path = self.repo_path / self.target_script
-        
-        if not script_path.exists():
-            self.logger.error(f"Target script {script_path} does not exist")
-            return False
-        
+    def _restart_service(self) -> bool:
+        """Restart the systemd service"""
         try:
-            # Make sure script is executable
-            os.chmod(script_path, 0o755)
-            
-            # Start the script
-            self.current_process = subprocess.Popen(
-                [sys.executable, str(script_path)],
+            self.logger.info(f"Restarting service {self.service_name}...")
+            subprocess.run(
+                ["sudo", "systemctl", "restart", self.service_name],
                 cwd=self.repo_path,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                bufsize=1,
-                universal_newlines=True
+                capture_output=True,
+                check=True
             )
-            
-            self.logger.info(f"Started {self.target_script} with PID {self.current_process.pid}")
+            self.logger.info(f"Service {self.service_name} restarted successfully")
             return True
-            
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Failed to restart service: {e}")
+            return False
+
+    def _check_service_health(self) -> bool:
+        """Check if the systemd service is running"""
+        try:
+            result = subprocess.run(
+                ["systemctl", "is-active", self.service_name],
+                capture_output=True,
+                text=True
+            )
+            is_active = result.stdout.strip() == "active"
+            if not is_active:
+                self.logger.warning(f"Service {self.service_name} is not active: {result.stdout.strip()}")
+            return is_active
         except Exception as e:
-            self.logger.error(f"Failed to start script: {e}")
+            self.logger.error(f"Failed to check service health: {e}")
             return False
-    
-    def _check_script_health(self) -> bool:
-        """Check if the current script is still running"""
-        if not self.current_process:
-            return False
-        
-        poll_result = self.current_process.poll()
-        if poll_result is not None:
-            self.logger.warning(f"Script exited with code {poll_result}")
-            return False
-        
-        return True
     
     def run(self):
         """Main update loop"""
         self.logger.info("Auto-updater starting...")
-        
+        self.logger.info(f"Monitoring service: {self.service_name}")
+        self.logger.info(f"Watching paths: {', '.join(self.watch_paths)}")
+
         # Get initial commit
         self.current_commit = self._get_current_commit()
         if not self.current_commit:
             self.logger.error("Failed to get initial commit, exiting")
             return
-        
+
         self.logger.info(f"Starting with commit {self.current_commit}")
-        
-        # Start initial script
-        if not self._start_script():
-            self.logger.error("Failed to start initial script, exiting")
-            return
-        
+
+        # Check if service is running
+        if not self._check_service_health():
+            self.logger.warning("Service not running at startup")
+
         # Main monitoring loop
         while self.running:
             try:
-                # Check if script is still running
-                if not self._check_script_health():
-                    self.logger.info("Script not running, restarting...")
-                    if not self._start_script():
-                        self.logger.error("Failed to restart script")
+                # Check if service is still running
+                if not self._check_service_health():
+                    self.logger.info("Service not running, attempting restart...")
+                    if not self._restart_service():
+                        self.logger.error("Failed to restart service")
                         time.sleep(self.check_interval)
                         continue
-                
+
                 # Check for updates
                 if self._check_for_updates():
-                    self.logger.info("Updates found, restarting script...")
-                    
-                    # Stop current process
-                    self._stop_current_process()
-                    
+                    self.logger.info("Updates found, pulling and restarting...")
+
                     # Pull updates
                     if self._pull_updates():
-                        # Start new version
-                        if not self._start_script():
-                            self.logger.error("Failed to start updated script")
+                        # Restart service with new code
+                        if not self._restart_service():
+                            self.logger.error("Failed to restart service with updates")
                     else:
-                        self.logger.error("Failed to pull updates, restarting old version")
-                        self._start_script()
-                
+                        self.logger.error("Failed to pull updates")
+
                 # Wait before next check
                 time.sleep(self.check_interval)
-                
+
             except KeyboardInterrupt:
                 self.logger.info("Keyboard interrupt received, shutting down...")
                 break
             except Exception as e:
                 self.logger.error(f"Unexpected error in main loop: {e}")
                 time.sleep(self.check_interval)
-        
-        # Cleanup
-        self._stop_current_process()
+
         self.logger.info("Auto-updater stopped")
 
 def main():
     """Main entry point"""
     import argparse
-    
-    parser = argparse.ArgumentParser(description="Auto-updater for LED Matrix Controller")
-    parser.add_argument("--repo-path", default="/home/jim/Esp32-matrix", 
+
+    parser = argparse.ArgumentParser(description="Auto-updater for LED Display Driver")
+    parser.add_argument("--repo-path", default="/home/jim/Esp32-matrix",
                        help="Path to git repository")
-    parser.add_argument("--script", default="led_matrix_controller.py",
-                       help="Target script to monitor and restart")
+    parser.add_argument("--service", default="led-driver.service",
+                       help="Systemd service name to monitor and restart")
     parser.add_argument("--interval", type=int, default=30,
                        help="Check interval in seconds")
     parser.add_argument("--log-file", default="/tmp/auto_updater.log",
                        help="Log file path")
-    
+    parser.add_argument("--watch-paths", nargs="+",
+                       default=["rpi_driver/", "static/", "configs/", "requirements.txt"],
+                       help="Paths to watch for changes")
+
     args = parser.parse_args()
-    
+
     updater = AutoUpdater(
         repo_path=args.repo_path,
-        target_script=args.script,
+        service_name=args.service,
         check_interval=args.interval,
-        log_file=args.log_file
+        log_file=args.log_file,
+        watch_paths=args.watch_paths
     )
-    
+
     updater.run()
 
 if __name__ == "__main__":

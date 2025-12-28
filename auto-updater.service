@@ -1,0 +1,21 @@
+[Unit]
+Description=LED Display Auto-Updater Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/home/jim/Esp32-matrix
+ExecStart=/usr/bin/python3 /home/jim/Esp32-matrix/auto_updater.py --repo-path /home/jim/Esp32-matrix --service led-driver.service --interval 30
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment variables
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

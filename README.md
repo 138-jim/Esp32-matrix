@@ -152,6 +152,30 @@ Panel 2 DOUT → Panel 3 DIN
 - `WS /ws/frames` - Stream frames (binary)
 - `WS /ws/preview` - Live preview feed
 
+## Auto-Update from Git
+
+To automatically pull updates from GitHub and restart the driver:
+
+```bash
+# Install auto-updater service
+sudo ./install_auto_updater.sh
+
+# View auto-updater logs
+sudo journalctl -u auto-updater.service -f
+```
+
+**How it works:**
+- Checks for new commits every 30 seconds
+- Automatically pulls changes from the `main` branch
+- Restarts the LED driver service when code changes
+- Monitors: `rpi_driver/`, `static/`, `configs/`, `requirements.txt`
+
+**Manual operation:**
+```bash
+# Run auto-updater manually (without systemd)
+python3 auto_updater.py --repo-path /home/jim/Esp32-matrix --service led-driver.service
+```
+
 ## Troubleshooting
 
 **"Permission denied" errors:**
