@@ -82,6 +82,9 @@ class LEDDriver:
         self.gpio_pin = gpio_pin
         self.brightness = brightness
 
+        # Store current frame for power calculations
+        self.current_frame = np.zeros((led_count, 3), dtype=np.uint8)
+
         logger.info(f"Initializing LED driver: {led_count} LEDs on GPIO {gpio_pin}")
 
         # Check if running on Raspberry Pi
@@ -121,6 +124,7 @@ class LEDDriver:
             b: Blue value (0-255)
         """
         if 0 <= index < self.led_count:
+            self.current_frame[index] = [r, g, b]
             color = Color(r, g, b)
             self.strip.setPixelColor(index, color)
         else:
@@ -137,6 +141,9 @@ class LEDDriver:
             logger.error(f"Invalid frame shape: {rgb_array.shape}, expected ({self.led_count}, 3)")
             return
 
+        # Store current frame for power calculations
+        self.current_frame = rgb_array.copy()
+
         # Set all pixels from array
         for i in range(self.led_count):
             r, g, b = rgb_array[i]
@@ -152,6 +159,7 @@ class LEDDriver:
 
     def clear(self) -> None:
         """Clear all LEDs (set to black)"""
+        self.current_frame.fill(0)
         for i in range(self.led_count):
             self.strip.setPixelColor(i, Color(0, 0, 0))
 
@@ -182,6 +190,7 @@ class LEDDriver:
             g: Green value (0-255)
             b: Blue value (0-255)
         """
+        self.current_frame[:] = [r, g, b]
         color = Color(r, g, b)
         for i in range(self.led_count):
             self.strip.setPixelColor(i, color)
@@ -203,8 +212,9 @@ class MockLEDDriver(LEDDriver):
         self.brightness = kwargs.get('brightness', 128)
         self.gpio_pin = kwargs.get('gpio_pin', 18)
 
-        # Create mock buffer
+        # Create mock buffer (also used as current_frame)
         self.buffer = np.zeros((led_count, 3), dtype=np.uint8)
+        self.current_frame = self.buffer  # Use same buffer for both
 
         logger.info(f"Mock LED driver initialized: {led_count} LEDs")
         logger.info("Running in MOCK MODE - no hardware will be controlled")

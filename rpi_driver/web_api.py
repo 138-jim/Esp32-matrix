@@ -525,10 +525,10 @@ class WebAPIServer:
                     raise HTTPException(status_code=503,
                                       detail="System monitor not available")
 
-                # Try to get current frame from display controller for accurate LED power
+                # Get current frame from LED driver for accurate LED power calculation
                 current_frame = None
-                if hasattr(self.display_controller, 'current_frame'):
-                    current_frame = self.display_controller.current_frame
+                if hasattr(self.led_driver, 'current_frame'):
+                    current_frame = self.led_driver.current_frame
 
                 stats = self.system_monitor.get_all_stats(frame=current_frame)
                 return stats
@@ -536,7 +536,7 @@ class WebAPIServer:
             except HTTPException:
                 raise
             except Exception as e:
-                logger.error(f"Error getting system stats: {e}")
+                logger.error(f"Error getting system stats: {e}", exc_info=True)
                 raise HTTPException(status_code=500, detail=str(e))
 
         # WebSocket for frame streaming
