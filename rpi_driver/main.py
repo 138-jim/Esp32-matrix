@@ -184,7 +184,9 @@ class LEDDisplaySystem:
 
             # Start web API server (blocking)
             logger.info(f"Starting web server on http://0.0.0.0:{self.port}")
-            logger.info(f"Open http://localhost:{self.port} in your browser")
+            logger.info(f"Access locally: http://localhost:{self.port}")
+            logger.info(f"Access over LAN: http://192.168.1.15:{self.port}")
+            logger.info("Or use your device's IP address")
 
             self.running = True
 

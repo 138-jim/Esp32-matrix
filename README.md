@@ -47,9 +47,10 @@ sudo journalctl -u led-driver.service -f
 
 ### Web Interface
 
-Open in your browser:
-- `http://raspberrypi.local:8080`
-- Or use your Pi's IP address: `http://192.168.1.x:8080`
+The web interface is accessible over LAN. Open in your browser:
+- From the Pi itself: `http://localhost:8080`
+- From any device on your LAN: `http://192.168.1.15:8080` (replace with your Pi's IP)
+- Or use hostname: `http://raspberrypi.local:8080`
 
 ## Usage
 

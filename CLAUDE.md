@@ -6,6 +6,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Raspberry Pi-based LED matrix control system supporting multiple WS2812B LED panels in configurable layouts. The Raspberry Pi directly controls the LED panels via GPIO pins using the rpi-ws281x library.
 
+**The complete system is already built** - see the `rpi_driver/` directory. This includes:
+- Multi-threaded display driver with hot-reload config
+- Web-based configuration interface (accessible over LAN)
+- Multi-protocol frame input (HTTP, WebSocket, UDP, named pipe)
+- Built-in test patterns for alignment
+- Systemd service for auto-start on boot
+
+## Quick Start
+
+**Run the driver:**
+```bash
+# Setup (first time only)
+sudo ./setup_rpi_driver.sh
+
+# Run directly
+sudo python3 -m rpi_driver.main --config configs/current.json
+
+# Or install as service
+sudo ./install_service.sh
+```
+
+**Access the web interface** (available over LAN):
+- From the Pi: `http://localhost:8080`
+- From any device on your LAN: `http://192.168.1.15:8080` (replace with your Pi's IP)
+- Or use hostname: `http://raspberrypi.local:8080`
+
+**Send frames from external programs:**
+```python
+import numpy as np
+import requests
+
+# Create 32x32 frame (for 2x2 grid of 16x16 panels)
+frame = np.zeros((32, 32, 3), dtype=np.uint8)
+frame[10:20, 10:20] = [255, 0, 0]  # Red square
+
+# Send to display (works from any device on LAN)
+requests.post('http://192.168.1.15:8080/api/frame',
+              data=frame.tobytes())
+```
+
 ## Architecture
 
 ### Direct GPIO Control
