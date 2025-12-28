@@ -426,6 +426,9 @@ def elapsed_time(width: int, height: int, offset: float = 0) -> np.ndarray:
         x = (width - text_width) // 2
         draw.text((x, y_spacing * 3), line3, fill=color, font=font)
 
+    # Flip horizontally to compensate for panel orientation
+    img = img.transpose(Image.FLIP_LEFT_RIGHT)
+
     # Convert to numpy array
     frame = np.array(img, dtype=np.uint8)
 
