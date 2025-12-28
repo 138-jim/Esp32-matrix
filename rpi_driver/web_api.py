@@ -8,6 +8,7 @@ import logging
 import threading
 import queue
 import json
+import time
 import numpy as np
 from pathlib import Path
 from typing import Optional, Dict, Any, List
@@ -57,6 +58,94 @@ class StatusResponse(BaseModel):
     config_path: str
 
 
+class PatternGenerator:
+    """
+    Background thread that continuously generates test pattern frames
+    """
+
+    def __init__(self, frame_queue: queue.Queue, width: int, height: int):
+        """
+        Initialize pattern generator
+
+        Args:
+            frame_queue: Queue to send generated frames to
+            width: Frame width
+            height: Frame height
+        """
+        self.frame_queue = frame_queue
+        self.width = width
+        self.height = height
+        self.running = False
+        self.thread = None
+        self.current_pattern = None
+        self.frame_count = 0
+
+    def start(self, pattern_name: str) -> None:
+        """
+        Start generating pattern frames
+
+        Args:
+            pattern_name: Name of pattern to generate
+        """
+        if self.running:
+            self.stop()
+
+        self.current_pattern = pattern_name
+        self.frame_count = 0
+        self.running = True
+        self.thread = threading.Thread(target=self._generate_loop, daemon=True)
+        self.thread.start()
+        logger.info(f"Started pattern generator: {pattern_name}")
+
+    def stop(self) -> None:
+        """Stop generating pattern frames"""
+        if self.running:
+            self.running = False
+            if self.thread:
+                self.thread.join(timeout=1.0)
+            self.current_pattern = None
+            logger.info("Stopped pattern generator")
+
+    def _generate_loop(self) -> None:
+        """Main generation loop (runs in background thread)"""
+        try:
+            while self.running:
+                # Calculate animation offset based on frame count
+                offset = self.frame_count * 0.02  # Adjust speed here
+
+                # Generate frame
+                frame = test_patterns.get_pattern(
+                    self.current_pattern,
+                    self.width,
+                    self.height,
+                    offset
+                )
+
+                # Add to queue (non-blocking, drop if full)
+                try:
+                    self.frame_queue.put_nowait(frame)
+                except queue.Full:
+                    logger.debug("Frame queue full, dropping pattern frame")
+
+                self.frame_count += 1
+
+                # Target ~30 FPS for patterns
+                time.sleep(1.0 / 30.0)
+
+        except Exception as e:
+            logger.error(f"Pattern generator error: {e}", exc_info=True)
+        finally:
+            self.running = False
+
+    def is_running(self) -> bool:
+        """Check if generator is currently running"""
+        return self.running
+
+    def get_current_pattern(self) -> Optional[str]:
+        """Get name of currently running pattern"""
+        return self.current_pattern if self.running else None
+
+
 class WebAPIServer:
     """
     Web API server for LED display control
@@ -93,6 +182,10 @@ class WebAPIServer:
         self.static_dir = Path(static_dir)
 
         self.config_manager = ConfigManager()
+
+        # Initialize pattern generator
+        width, height = self.mapper.get_dimensions()
+        self.pattern_generator = PatternGenerator(frame_queue, width, height)
 
         # Create FastAPI app
         self.app = FastAPI(title="LED Display Driver API", version="1.0.0")
@@ -269,24 +362,39 @@ class WebAPIServer:
         # Test pattern endpoint
         @self.app.post("/api/test-pattern")
         async def test_pattern(request: TestPatternRequest):
-            """Display test pattern"""
+            """Display test pattern (starts continuous animation)"""
             try:
                 pattern_name = request.pattern
-                width, height = self.mapper.get_dimensions()
 
-                # Generate pattern
-                frame = test_patterns.get_pattern(pattern_name, width, height, 0)
+                # Validate pattern exists
+                if pattern_name not in test_patterns.PATTERNS:
+                    raise HTTPException(status_code=400, detail=f"Unknown pattern: {pattern_name}")
 
-                # Add to queue
-                try:
-                    self.frame_queue.put_nowait(frame)
-                except queue.Full:
-                    raise HTTPException(status_code=503, detail="Frame queue full")
+                # Start pattern generator
+                self.pattern_generator.start(pattern_name)
 
-                return {"status": "success", "pattern": pattern_name}
+                return {
+                    "status": "success",
+                    "pattern": pattern_name,
+                    "message": "Pattern animation started"
+                }
 
+            except HTTPException:
+                raise
             except Exception as e:
                 logger.error(f"Error displaying test pattern: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+
+        # Stop pattern endpoint
+        @self.app.post("/api/stop-pattern")
+        async def stop_pattern():
+            """Stop current test pattern animation"""
+            try:
+                self.pattern_generator.stop()
+                return {"status": "success", "message": "Pattern stopped"}
+
+            except Exception as e:
+                logger.error(f"Error stopping pattern: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
 
         # Status endpoint
@@ -378,3 +486,8 @@ class WebAPIServer:
     def get_app(self) -> FastAPI:
         """Get FastAPI application instance"""
         return self.app
+
+    def shutdown(self) -> None:
+        """Shutdown the web API server and cleanup resources"""
+        logger.info("Shutting down web API server")
+        self.pattern_generator.stop()

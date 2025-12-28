@@ -161,11 +161,34 @@ async function testPattern(patternName) {
             throw new Error(error.detail || `HTTP ${response.status}`);
         }
 
-        showStatus(`Displaying pattern: ${patternName}`, 'success');
+        showStatus(`Pattern started: ${patternName}`, 'success');
 
     } catch (error) {
         console.error('Error displaying pattern:', error);
         showStatus(`Error displaying pattern: ${error.message}`, 'error');
+    }
+}
+
+// Stop current test pattern
+async function stopPattern() {
+    try {
+        const response = await fetch(`${API_BASE}/api/stop-pattern`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || `HTTP ${response.status}`);
+        }
+
+        showStatus('Pattern stopped', 'success');
+
+    } catch (error) {
+        console.error('Error stopping pattern:', error);
+        showStatus(`Error stopping pattern: ${error.message}`, 'error');
     }
 }
 
