@@ -1,0 +1,44 @@
+{
+  "grid": {
+    "grid_width": 2,
+    "grid_height": 2,
+    "panel_width": 16,
+    "panel_height": 16,
+    "wiring_pattern": "snake"
+  },
+  "frame_rate": 30,
+  "panels": [
+    {
+      "id": 0,
+      "rotation": 0,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": 1,
+      "rotation": 0,
+      "position": [
+        1,
+        0
+      ]
+    },
+    {
+      "id": 2,
+      "rotation": 180,
+      "position": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": 3,
+      "rotation": 180,
+      "position": [
+        0,
+        1
+      ]
+    }
+  ]
+}

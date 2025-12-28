@@ -1,14 +1,14 @@
 [Unit]
-Description=LED Matrix Auto-Updater Service
+Description=LED Display Driver Service
 After=network.target
 Wants=network.target
 
 [Service]
 Type=simple
-User=pi
-Group=pi
+User=root
+Group=root
 WorkingDirectory=/home/jim/Esp32-matrix
-ExecStart=/usr/bin/python3 /home/jim/Esp32-matrix/auto_updater.py
+ExecStart=/usr/bin/python3 -m rpi_driver.main --config configs/current.json --port 8080
 Restart=always
 RestartSec=10
 StandardOutput=journal
@@ -20,8 +20,6 @@ Environment=PYTHONUNBUFFERED=1
 # Security settings
 NoNewPrivileges=yes
 PrivateTmp=yes
-ProtectSystem=strict
-ReadWritePaths=/home/jim/Esp32-matrix /tmp
 
 [Install]
 WantedBy=multi-user.target

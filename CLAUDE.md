@@ -4,131 +4,243 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is an ESP32 LED matrix control system with multiple deployment configurations:
-- **ESP32 Hardware**: Two Arduino sketches for different use cases
-- **Raspberry Pi Controller**: Python-based frame renderer and serial communicator 
-- **Cross-platform Testing**: Windows-compatible version with GUI mock display
-- **Auto-updater**: Git-based automatic deployment system for Raspberry Pi
+Raspberry Pi-based LED matrix control system supporting multiple WS2812B LED panels in configurable layouts. The Raspberry Pi directly controls the LED panels via GPIO pins using the rpi-ws281x library.
 
 ## Architecture
 
-The system uses a distributed architecture where different components handle specific responsibilities:
+### Direct GPIO Control
 
-### ESP32 Firmware
-- `esp32_frame_display/esp32_frame_display.ino`: Serial-controlled frame display (works with Raspberry Pi)
-- `esp32_multi_panel_display/esp32_multi_panel_display.ino`: Enhanced version supporting dynamic panel configurations and variable frame sizes
+This system uses **direct GPIO control** from the Raspberry Pi to WS2812B LED panels. No intermediary microcontroller (like ESP32) is used - the Raspberry Pi's PWM hardware directly generates the precise timing signals required by WS2812B LEDs.
 
-### Python Controllers
-- `led_matrix_controller.py`: Main Raspberry Pi controller with text rendering and pattern generation
-- `led_matrix_controller_windows_test.py`: Cross-platform version with mock display capabilities
-- `rpi_led_controller.py`: Simplified ESP32 communication wrapper
-- `test_mock_display.py`: Testing utilities for mock display functionality
-- `auto_updater.py`: Git-based automatic deployment system
+**Key Components:**
+- **rpi-ws281x library**: Low-level C library that uses Raspberry Pi PWM/DMA hardware for precise WS2812B timing
+- **Panel Configuration**: JSON-based configuration defining panel layout, positioning, and rotation
+- **Pattern Generation**: Python code for rendering text, animations, and patterns
 
-### Communication Protocol
-ESP32 receives serial commands:
+### Panel Configuration Format
 
-**Standard Protocol** (single 16x16 panel):
-- `FRAME:<768 bytes RGB data>:END` - Display 16x16 RGB frame
-- `BRIGHTNESS:<0-255>\n` - Set LED brightness
-- `CLEAR\n` - Clear display
+Panel layouts are defined in JSON files (e.g., `panel_config.json`):
+```json
+{
+  "grid": {
+    "grid_width": 2,
+    "grid_height": 2,
+    "panel_width": 16,
+    "panel_height": 16,
+    "wiring_pattern": "snake"
+  },
+  "panels": [
+    {"id": 0, "rotation": 0, "position": [0, 0]},
+    {"id": 1, "rotation": 0, "position": [1, 0]},
+    {"id": 2, "rotation": 180, "position": [1, 1]},
+    {"id": 3, "rotation": 180, "position": [0, 1]}
+  ]
+}
+```
 
-**Enhanced Multi-Panel Protocol**:
-- `CONFIG:width,height\n` - Configure total display dimensions
-- `FRAME:size:<variable bytes RGB data>:END` - Display frame with specified size
-- `STATUS\n` - Get current configuration and status
-- `INFO\n` - Show available commands
+**Key Concepts:**
+- `position`: Logical position in combined display (measured in panels, not pixels)
+- `rotation`: 0, 90, 180, or 270 degrees to account for physical panel orientation
+- `wiring_pattern`: "snake" (zigzag), "sequential" (left-to-right), or "vertical_snake"
+- All panels are daisy-chained on a single GPIO pin with data flowing through panels in order
+
+### Hardware Wiring
+
+WS2812B panels must be connected in a daisy-chain configuration:
+```
+Raspberry Pi GPIO Pin 18 (PWM0) → Panel 0 DIN
+Panel 0 DOUT → Panel 1 DIN
+Panel 1 DOUT → Panel 2 DIN
+...
+```
+
+**Important GPIO Pins:**
+- **GPIO 18 (Pin 12)**: PWM0 - Most common for LED control (default for rpi-ws281x)
+- **GPIO 13 (Pin 33)**: PWM1 - Alternative PWM pin
+- **GPIO 10 (Pin 19)**: SPI MOSI - Can be used with SPI mode
+- **GPIO 21 (Pin 40)**: PCM - Alternative using PCM hardware
+
+**Power Considerations:**
+- WS2812B LEDs draw significant current (up to 60mA per LED at full white)
+- Use external 5V power supply for LED strips
+- Connect Raspberry Pi ground to LED power supply ground
+- Never power more than a few LEDs directly from Raspberry Pi 5V pins
 
 ## Development Commands
 
-### Python Environment Setup
-```bash
-# Install dependencies
-pip install -r requirements.txt
+### Environment Setup
 
-# Or use the provided setup scripts
-./install_dependencies.sh    # Basic installation
-./setup_rpi.sh              # Raspberry Pi specific setup
+**On Raspberry Pi:**
+```bash
+# Install system dependencies
+sudo apt update
+sudo apt install -y python3 python3-pip python3-dev scons swig
+
+# Install Python dependencies
+pip3 install -r requirements.txt
+
+# Note: rpi-ws281x requires root access or proper permissions
+# Run with sudo, or set up permissions:
+sudo usermod -a -G gpio $USER
 ```
 
-### Running Controllers
+**Important**: The rpi-ws281x library requires root access or GPIO permissions. Most LED control scripts will need to be run with `sudo`.
+
+### Configuration Generation
+
+Generate panel configurations for different layouts:
+
 ```bash
-# Main Raspberry Pi controller with ESP32 hardware
-python3 led_matrix_controller.py
+# Use the configurator interactively
+python3 configurator.py
 
-# Simplified ESP32 communication wrapper  
-python3 rpi_led_controller.py
-
-# Cross-platform testing with mock GUI display
-python3 led_matrix_controller_windows_test.py --mock --gui
-
-# Cross-platform testing with ASCII output
-python3 led_matrix_controller_windows_test.py --mock --ascii
-
-# Test mock display functionality
-python3 test_mock_display.py
+# Or programmatically in your code:
+from configurator import generate_panel_config
+config = generate_panel_config(
+    grid_width=2,
+    grid_height=2,
+    wiring_pattern="snake"
+)
 ```
 
-### Hardware Setup
-1. Upload Arduino sketch to ESP32:
-   - Use `esp32_frame_display/esp32_frame_display.ino` for basic serial control
-   - Use `esp32_multi_panel_display/esp32_multi_panel_display.ino` for enhanced multi-panel support
-2. Connect ESP32 to Raspberry Pi via USB
-3. Run setup script: `./setup_rpi.sh` 
-4. Logout/login for serial permissions
-5. Find ESP32 port: `ls /dev/tty*` (usually `/dev/ttyUSB0` or `/dev/ttyACM0`)
+### Auto-Updater (Optional)
 
+The auto-updater monitors the git repository and restarts the controller when changes are detected:
 
-### Auto-updater System
 ```bash
-# Install as systemd service (Raspberry Pi)
-sudo ./install_updater.sh
-
-# Manual run
+# Update auto_updater.py to point to your LED controller script
+# Then run manually:
 python3 auto_updater.py
 ```
 
-## Key Configuration Points
+## Creating a New LED Controller
 
-### ESP32 Hardware Settings
-In Arduino sketches, configure:
-- `LED_PIN`: GPIO pin for LED data (default: 26)
-- `MATRIX_WIDTH/HEIGHT`: Display dimensions (default: 16x16)
-- `FLIP_HORIZONTAL/VERTICAL`: Orientation adjustments
-- `SERPENTINE_LAYOUT`: Wiring pattern (zigzag vs row-by-row)
+Since all ESP32-specific code has been removed, you'll need to create a new controller that uses rpi-ws281x. Here's the basic structure:
 
+```python
+#!/usr/bin/env python3
+import time
+import numpy as np
+from rpi_ws281x import PixelStrip, Color
 
-### Raspberry Pi Integration
-The auto-updater monitors git repository changes and restarts the controller automatically. Default paths in `auto_updater.py`:
-- Repository: `/home/jim/Esp32-matrix`
-- Target script: `led_matrix_controller.py`
-- Check interval: 30 seconds
+# LED strip configuration
+LED_COUNT = 1024      # Total number of LEDs (e.g., 4 panels of 16x16 = 1024)
+LED_PIN = 18          # GPIO pin connected to the pixels (must support PWM)
+LED_FREQ_HZ = 800000  # LED signal frequency in hertz (usually 800khz)
+LED_DMA = 10          # DMA channel to use for generating signal
+LED_BRIGHTNESS = 128  # Set to 0 for darkest and 255 for brightest
+LED_INVERT = False    # True to invert the signal (for NPN transistor level shift)
+LED_CHANNEL = 0       # 0 or 1
+LED_STRIP = ws.WS2811_STRIP_GRB  # Strip type (GRB for most WS2812B)
 
-## Testing and Mock Mode
+# Create LED strip object
+strip = PixelStrip(LED_COUNT, LED_PIN, LED_FREQ_HZ, LED_DMA,
+                   LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
 
-The Windows-compatible version includes comprehensive testing capabilities:
-- `--mock`: Enable software-only mode (no serial hardware required)
-- `--gui`: Tkinter-based visual LED matrix simulator  
-- `--ascii`: Console-based matrix display with Unicode blocks
-- `--port`: Specify serial port (auto-detects COM3 on Windows, /dev/ttyUSB0 on Linux)
+# Initialize the library (must be called once before other functions)
+strip.begin()
 
-Mock mode supports all controller features including scrolling text, patterns (rainbow, spiral, wave), and brightness control.
+# Set pixel color (index, Color(R, G, B))
+strip.setPixelColor(0, Color(255, 0, 0))  # Red
+strip.show()
+```
 
-## Serial Communication
+**Key Functions:**
+- `strip.begin()`: Initialize the strip (call once at startup)
+- `strip.setPixelColor(index, Color(r, g, b))`: Set color for LED at index
+- `strip.show()`: Update the physical LEDs with buffered colors
+- `strip.setBrightness(brightness)`: Set global brightness (0-255)
+- `Color(r, g, b)` or `Color(r, g, b, w)`: Create color value
 
-Hardware controllers expect specific serial configuration:
-- Baud rate: 115200
-- Port: `/dev/ttyUSB0` (Raspberry Pi), `COM3` (Windows)
-- Frame format: Binary RGB data in serpentine layout for LED strips
+## Panel Mapping
 
+When using multiple panels, you need to map 2D coordinates (x, y) to linear LED indices:
 
-## Dependencies
+```python
+def xy_to_index(x, y, panel_width=16, panel_height=16, panels_wide=2):
+    """
+    Convert 2D coordinates to LED strip index
+    Assumes panels are in a snake pattern
+    """
+    panel_x = x // panel_width
+    panel_y = y // panel_height
+    pixel_x = x % panel_width
+    pixel_y = y % panel_height
 
-### Python Requirements
-- `pyserial>=3.5`: Serial communication with ESP32
-- `numpy>=1.19.0`: Matrix operations and frame buffering  
-- `Pillow>=8.0.0`: Text rendering and image processing
-- `tkinter`: GUI interface (usually included with Python)
+    # Calculate panel index (snake pattern)
+    if panel_y % 2 == 0:
+        panel_index = panel_y * panels_wide + panel_x
+    else:
+        panel_index = panel_y * panels_wide + (panels_wide - 1 - panel_x)
 
-### Arduino Libraries
-- `FastLED`: LED strip control
+    # Calculate pixel within panel (typically snake pattern within panel too)
+    if pixel_y % 2 == 0:
+        pixel_index = pixel_y * panel_width + pixel_x
+    else:
+        pixel_index = pixel_y * panel_width + (panel_width - 1 - pixel_x)
+
+    return panel_index * (panel_width * panel_height) + pixel_index
+```
+
+## Common Patterns
+
+### Wiring Patterns
+
+- **snake**: Most common for daisy-chained LED strips. Alternating left-to-right and right-to-left rows
+- **sequential**: Always left-to-right (rare, requires longer wiring)
+- **vertical_snake**: Alternating top-to-bottom and bottom-to-top columns
+
+The pattern affects how you map 2D coordinates to LED indices.
+
+### Panel Rotation
+
+Physical panels may be mounted rotated to simplify wiring. Use the `rotation` parameter (0/90/180/270) in panel config. Your controller code should:
+1. Generate content in logical coordinates
+2. Apply rotation transformation
+3. Map to physical LED indices
+
+### Performance Tips
+
+- **Update Rate**: rpi-ws281x can achieve 30-60 FPS depending on LED count
+- **Minimize strip.show() calls**: Buffer multiple pixel updates, then call show() once
+- **Use numpy**: For bulk pixel operations, numpy arrays are much faster than loops
+- **Consider brightness**: Lower brightness = less power = cooler operation
+- **CPU affinity**: For critical timing, consider dedicating a CPU core
+
+## Troubleshooting
+
+**"Failed to create mailbox device" or permission errors:**
+- Run with `sudo python3 your_script.py`
+- Or add user to gpio group and configure udev rules
+
+**LEDs show wrong colors:**
+- Check LED_STRIP type (GRB vs RGB vs other)
+- Verify in code: `LED_STRIP = ws.WS2811_STRIP_GRB` or `ws.WS2811_STRIP_RGB`
+
+**No output on LEDs:**
+1. Verify GPIO pin number (BCM numbering, not physical pin)
+2. Check power supply to LEDs
+3. Verify ground connection between Pi and LED power supply
+4. Check data line connection
+5. Test with simple script setting all LEDs to one color
+
+**Flickering or glitching:**
+- Disable onboard audio: Add `dtparam=audio=off` to `/boot/config.txt`
+- Use PCM instead of PWM: Use GPIO 21 instead of GPIO 18
+- Check power supply stability
+
+**Panel orientation wrong:**
+1. Use corner test pattern to identify which corner is LED 0
+2. Adjust rotation parameters in panel config
+3. Verify wiring_pattern matches physical connection order
+
+## Remaining Files
+
+After ESP32 code removal, these files remain:
+
+- **configurator.py**: Generate panel configuration JSON files
+- **auto_updater.py**: Git-based auto-deployment system (needs updating with your controller script name)
+- **panel_config*.json**: Example panel configurations
+- **requirements.txt**: Python dependencies including rpi-ws281x
+
+You will need to create new controller scripts that use rpi-ws281x for actual LED control.

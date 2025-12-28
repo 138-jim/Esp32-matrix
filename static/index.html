@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED Display Driver - Control Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: #0f3460;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #16dbc8;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #0f3460;
+        }
+
+        .panel h2 {
+            color: #16dbc8;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #0f3460;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #94a3b8;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            background: #0f3460;
+            border: 1px solid #16dbc8;
+            color: #eee;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            background: #16dbc8;
+            color: #1a1a2e;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #1ac4b5;
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+        }
+
+        #panelList {
+            list-style: none;
+        }
+
+        .panel-item {
+            background: #0f3460;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #16dbc8;
+        }
+
+        .panel-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .panel-item-title {
+            font-weight: bold;
+            color: #16dbc8;
+        }
+
+        .panel-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .stat-box {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .stat-label {
+            color: #94a3b8;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            color: #16dbc8;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        #statusMessage {
+            background: #0f3460;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 15px;
+            min-height: 40px;
+            border-left: 4px solid #16dbc8;
+        }
+
+        .error {
+            border-left-color: #ff4444 !important;
+            color: #ff8888;
+        }
+
+        .success {
+            border-left-color: #44ff44 !important;
+            color: #88ff88;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+        }
+
+        .slider-value {
+            min-width: 40px;
+            text-align: center;
+            color: #16dbc8;
+            font-weight: bold;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎨 LED Display Driver - Control Panel</h1>
+            <p>Configure your 4x 16x16 WS2812B LED panel system</p>
+        </header>
+
+        <div class="main-grid">
+            <!-- Left Column -->
+            <div>
+                <!-- Panel Configuration -->
+                <div class="panel">
+                    <h2>Panel Configuration</h2>
+                    <ul id="panelList"></ul>
+                    <button onclick="saveConfig()">💾 Save Configuration</button>
+                </div>
+
+                <!-- Test Patterns -->
+                <div class="panel" style="margin-top: 20px;">
+                    <h2>Test Patterns</h2>
+                    <div class="button-group">
+                        <button onclick="testPattern('corners')">🔴 Corners</button>
+                        <button onclick="testPattern('cross')">✖ Cross</button>
+                        <button onclick="testPattern('rainbow')">🌈 Rainbow</button>
+                        <button onclick="testPattern('spiral')">🌀 Spiral</button>
+                        <button onclick="testPattern('wave')">🌊 Wave</button>
+                        <button onclick="testPattern('fire')">🔥 Fire</button>
+                        <button onclick="testPattern('checkerboard')">▦ Checker</button>
+                        <button onclick="testPattern('grid')">◼ Grid</button>
+                        <button onclick="testPattern('red')">🔴 Red</button>
+                        <button onclick="testPattern('green')">🟢 Green</button>
+                        <button onclick="testPattern('blue')">🔵 Blue</button>
+                        <button onclick="testPattern('white')">⚪ White</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div>
+                <!-- Brightness Control -->
+                <div class="panel">
+                    <h2>Brightness Control</h2>
+                    <div class="control-group">
+                        <label>Brightness (0-255)</label>
+                        <div class="slider-container">
+                            <input type="range" id="brightness" min="0" max="255" value="128"
+                                   oninput="updateBrightnessDisplay(this.value)">
+                            <span class="slider-value" id="brightnessValue">128</span>
+                        </div>
+                        <button onclick="setBrightness()" style="margin-top: 10px;">Set Brightness</button>
+                    </div>
+                </div>
+
+                <!-- System Status -->
+                <div class="panel" style="margin-top: 20px;">
+                    <h2>System Status</h2>
+                    <div class="status-grid">
+                        <div class="stat-box">
+                            <div class="stat-label">FPS</div>
+                            <div class="stat-value" id="fpsValue">--</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Queue</div>
+                            <div class="stat-value" id="queueValue">--</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">LEDs</div>
+                            <div class="stat-value" id="ledValue">--</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Width</div>
+                            <div class="stat-value" id="widthValue">--</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Height</div>
+                            <div class="stat-value" id="heightValue">--</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Brightness</div>
+                            <div class="stat-value" id="currentBrightness">--</div>
+                        </div>
+                    </div>
+                    <div id="statusMessage"></div>
+                </div>
+
+                <!-- Quick Actions -->
+                <div class="panel" style="margin-top: 20px;">
+                    <h2>Quick Actions</h2>
+                    <div class="button-group">
+                        <button onclick="refreshConfig()">🔄 Reload Config</button>
+                        <button onclick="refreshStatus()">📊 Update Status</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
