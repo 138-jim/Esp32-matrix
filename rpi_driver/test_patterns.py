@@ -7,7 +7,9 @@ Built-in patterns for alignment testing and visual effects
 import numpy as np
 import math
 import colorsys
+from datetime import datetime, timedelta
 from typing import Tuple
+from PIL import Image, ImageDraw, ImageFont
 
 
 def solid_color(width: int, height: int, r: int, g: int, b: int) -> np.ndarray:
@@ -342,6 +344,90 @@ def panel_numbers(width: int, height: int, panel_width: int = 16,
     return frame
 
 
+def elapsed_time(width: int, height: int, offset: float = 0) -> np.ndarray:
+    """
+    Display elapsed time since a specific date
+
+    Shows time elapsed since January 1, 2025 00:00:00
+    Format changes based on duration:
+    - Less than 1 day: "Xh Ym" (hours and minutes)
+    - Less than 100 days: "X days"
+    - 100+ days: "XXXd" (days abbreviated)
+
+    Args:
+        width: Frame width
+        height: Frame height
+        offset: Animation offset (for color cycling)
+
+    Returns:
+        Frame array with elapsed time text
+    """
+    # Create blank frame
+    frame = np.zeros((height, width, 3), dtype=np.uint8)
+
+    # Calculate elapsed time from reference date
+    # Change this date to whatever you want!
+    reference_date = datetime(2025, 7, 29, 0, 0, 0)
+    now = datetime.now()
+    elapsed = now - reference_date
+
+    # Format the time based on duration
+    total_seconds = elapsed.total_seconds()
+    days = elapsed.days
+    hours = int(total_seconds // 3600)
+    minutes = int((total_seconds % 3600) // 60)
+
+    # Choose format based on duration
+    if days < 1:
+        # Less than a day: show hours and minutes
+        text = f"{hours}h {minutes}m"
+        font_size = 8
+    elif days < 100:
+        # Less than 100 days: show "X days"
+        text = f"{days} days"
+        font_size = 10
+    else:
+        # 100+ days: abbreviated format
+        text = f"{days}d"
+        font_size = 12
+
+    # Create PIL image for text rendering
+    img = Image.new('RGB', (width, height), color=(0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    # Try to load a font, fall back to default if not available
+    try:
+        # Try to use a monospace font for better readability
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", font_size)
+    except:
+        try:
+            # Fall back to default PIL font
+            font = ImageFont.load_default()
+        except:
+            # If all else fails, use PIL's basic font
+            font = ImageFont.load_default()
+
+    # Calculate text position (center)
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+    x = (width - text_width) // 2
+    y = (height - text_height) // 2
+
+    # Animated color based on offset
+    hue = (offset * 0.1) % 1.0
+    r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+    color = (int(r * 255), int(g * 255), int(b * 255))
+
+    # Draw the text
+    draw.text((x, y), text, fill=color, font=font)
+
+    # Convert PIL image to numpy array
+    frame = np.array(img, dtype=np.uint8)
+
+    return frame
+
+
 # Pattern registry for easy access
 PATTERNS = {
     "red": lambda w, h, o: solid_color(w, h, 255, 0, 0),
@@ -358,6 +444,7 @@ PATTERNS = {
     "dot": moving_dot,
     "grid": lambda w, h, o: grid_lines(w, h),
     "panels": lambda w, h, o: panel_numbers(w, h),
+    "elapsed": elapsed_time,
 }
 
 
