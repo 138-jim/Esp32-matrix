@@ -171,6 +171,7 @@ class WebAPIServer:
                  display_controller: DisplayController,
                  config_path: str,
                  sleep_scheduler=None,
+                 system_monitor=None,
                  static_dir: str = "static"):
         """
         Initialize web API server
@@ -192,6 +193,7 @@ class WebAPIServer:
         self.display_controller = display_controller
         self.config_path = config_path
         self.sleep_scheduler = sleep_scheduler
+        self.system_monitor = system_monitor
         self.static_dir = Path(static_dir)
 
         self.config_manager = ConfigManager()
@@ -513,6 +515,29 @@ class WebAPIServer:
         async def get_patterns():
             """Get list of available test patterns"""
             return {"patterns": test_patterns.list_patterns()}
+
+        # System stats endpoint
+        @self.app.get("/api/system-stats")
+        async def get_system_stats():
+            """Get system statistics (CPU, RAM, power consumption)"""
+            try:
+                if not self.system_monitor:
+                    raise HTTPException(status_code=503,
+                                      detail="System monitor not available")
+
+                # Try to get current frame from display controller for accurate LED power
+                current_frame = None
+                if hasattr(self.display_controller, 'current_frame'):
+                    current_frame = self.display_controller.current_frame
+
+                stats = self.system_monitor.get_all_stats(frame=current_frame)
+                return stats
+
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error getting system stats: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
 
         # WebSocket for frame streaming
         @self.app.websocket("/ws/frames")

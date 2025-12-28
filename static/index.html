@@ -255,8 +255,43 @@
 
             <!-- Right Column -->
             <div>
-                <!-- Brightness Control -->
+                <!-- Hardware Monitor -->
                 <div class="panel">
+                    <h2>Hardware Monitor</h2>
+                    <div class="status-grid">
+                        <div class="stat-box">
+                            <div class="stat-label">CPU Usage</div>
+                            <div class="stat-value" id="cpuValue">--</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">CPU Temp</div>
+                            <div class="stat-value" id="cpuTempValue">--</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">RAM Usage</div>
+                            <div class="stat-value" id="ramValue">--</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Pi Power</div>
+                            <div class="stat-value" id="piPowerValue">--</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">LED Power</div>
+                            <div class="stat-value" id="ledPowerValue">--</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Total Power</div>
+                            <div class="stat-value" id="totalPowerValue">--</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px; padding: 10px; background: #0f3460; border-radius: 4px; font-size: 12px; color: #94a3b8; text-align: center;">
+                        <div id="piModelInfo">--</div>
+                        <div id="ledCurrentInfo" style="margin-top: 5px;">--</div>
+                    </div>
+                </div>
+
+                <!-- Brightness Control -->
+                <div class="panel" style="margin-top: 20px;">
                     <h2>Brightness Control</h2>
                     <div class="control-group">
                         <label>Brightness (0-255)</label>

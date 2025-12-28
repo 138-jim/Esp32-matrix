@@ -24,6 +24,44 @@ function updateClock() {
     document.getElementById('clockDate').textContent = dateString;
 }
 
+// Refresh hardware stats
+async function refreshHardwareStats() {
+    try {
+        const response = await fetch(`${API_BASE}/api/system-stats`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const stats = await response.json();
+
+        // Update CPU stats
+        document.getElementById('cpuValue').textContent = `${stats.cpu_percent.toFixed(1)}%`;
+
+        // Update CPU temperature
+        if (stats.cpu_temp_c !== null) {
+            document.getElementById('cpuTempValue').textContent = `${stats.cpu_temp_c}°C`;
+        } else {
+            document.getElementById('cpuTempValue').textContent = 'N/A';
+        }
+
+        // Update RAM stats
+        document.getElementById('ramValue').textContent = `${stats.ram_percent.toFixed(1)}%`;
+
+        // Update power stats
+        document.getElementById('piPowerValue').textContent = `${stats.pi_power_w}W`;
+        document.getElementById('ledPowerValue').textContent = `${stats.led_power_w}W`;
+        document.getElementById('totalPowerValue').textContent = `${stats.total_power_w}W`;
+
+        // Update info text
+        document.getElementById('piModelInfo').textContent =
+            `${stats.pi_model} | ${stats.ram_used_mb.toFixed(0)}MB / ${stats.ram_total_mb.toFixed(0)}MB RAM`;
+        document.getElementById('ledCurrentInfo').textContent =
+            `${stats.led_count} LEDs @ ${stats.led_current_a.toFixed(2)}A | Max: ${stats.led_max_power_w}W`;
+
+    } catch (error) {
+        console.error('Error refreshing hardware stats:', error);
+        // Don't show error message to avoid spam
+    }
+}
+
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
     console.log('LED Display Driver UI loaded');
@@ -31,6 +69,7 @@ window.addEventListener('DOMContentLoaded', () => {
     refreshStatus();
     loadSleepSchedule();
     updateClock();  // Initial clock update
+    refreshHardwareStats();  // Initial hardware stats update
 
     // Auto-refresh status every 2 seconds
     setInterval(refreshStatus, 2000);
@@ -40,6 +79,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Update clock every second
     setInterval(updateClock, 1000);
+
+    // Update hardware stats every 2 seconds
+    setInterval(refreshHardwareStats, 2000);
 });
 
 // Load and display configuration

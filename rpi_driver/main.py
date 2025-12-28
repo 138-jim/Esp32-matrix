@@ -21,6 +21,7 @@ from .display_controller import DisplayController
 from .frame_receiver import UDPFrameReceiver, PipeFrameReceiver
 from .web_api import WebAPIServer
 from .sleep_scheduler import SleepScheduler
+from .system_monitor import SystemMonitor
 
 
 # Configure logging
@@ -74,6 +75,7 @@ class LEDDisplaySystem:
         self.udp_receiver = None
         self.pipe_receiver = None
         self.web_api = None
+        self.system_monitor = None
 
         # Thread coordination
         self.frame_queue = queue.Queue(maxsize=10)
@@ -154,6 +156,13 @@ class LEDDisplaySystem:
             )
             self.sleep_scheduler.start()
 
+            # Initialize system monitor
+            logger.info("Initializing system monitor")
+            self.system_monitor = SystemMonitor(
+                led_driver=self.led_driver,
+                led_count=led_count
+            )
+
             # Initialize web API
             logger.info(f"Initializing web API server on port {self.port}")
             self.web_api = WebAPIServer(
@@ -164,6 +173,7 @@ class LEDDisplaySystem:
                 self.display_controller,
                 self.config_path,
                 sleep_scheduler=self.sleep_scheduler,
+                system_monitor=self.system_monitor,
                 static_dir="static"
             )
 
