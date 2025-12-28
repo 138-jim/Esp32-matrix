@@ -21,7 +21,7 @@ class AutoUpdater:
                  log_file: str = "/tmp/auto_updater.log",
                  watch_paths: list = None):
 
-        self.repo_path = Path(repo_path)
+        self.repo_path = str(Path(repo_path).resolve())  # Convert to absolute string path
         self.service_name = service_name
         self.check_interval = check_interval
         self.log_file = log_file
