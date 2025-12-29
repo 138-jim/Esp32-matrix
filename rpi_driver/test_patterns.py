@@ -541,11 +541,11 @@ def rain(width: int, height: int, offset: float = 0) -> np.ndarray:
     """
     frame = np.zeros((height, width, 3), dtype=np.uint8)
 
-    # Dark blue-gray background for rainy atmosphere
+    # Very dark blue-gray background for rainy atmosphere
     for y in range(height):
         for x in range(width):
-            # Gradient from dark at top to slightly lighter at bottom
-            brightness = int(15 + (y / height) * 10)
+            # Gradient from very dark at top to slightly lighter at bottom
+            brightness = int(3 + (y / height) * 5)
             frame[y, x] = [brightness // 2, brightness // 2, brightness]
 
     # Number of raindrops
@@ -555,8 +555,8 @@ def rain(width: int, height: int, offset: float = 0) -> np.ndarray:
         # Consistent x position for each drop
         drop_x = (drop_id * 73) % width
 
-        # Different speeds for different drops
-        speed = 2.0 + (drop_id % 5) * 0.5
+        # Different speeds for different drops (2x faster)
+        speed = 4.0 + (drop_id % 5) * 1.0
 
         # Calculate drop y position (falls down from top to bottom)
         # Start at top (0) and move toward bottom (height-1)
