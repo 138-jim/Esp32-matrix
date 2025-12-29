@@ -166,8 +166,8 @@ class SimulationGenerator:
     """
     Background thread that runs fluid simulation and generates frames
 
-    Runs high-resolution (64x64) Navier-Stokes fluid simulation,
-    streams to WebSocket clients, and downsamples to LED panel.
+    Runs Navier-Stokes fluid simulation at LED panel resolution (32x32)
+    for optimal performance, streams to WebSocket clients for visualization.
     """
 
     def __init__(self, frame_queue: queue.Queue, width: int, height: int):
@@ -175,9 +175,9 @@ class SimulationGenerator:
         Initialize simulation generator
 
         Args:
-            frame_queue: Queue to send downsampled frames to LED panel
-            width: Target LED panel width (32)
-            height: Target LED panel height (32)
+            frame_queue: Queue to send frames to LED panel
+            width: LED panel width (32)
+            height: LED panel height (32)
         """
         from .fluid_simulation import FluidSimulation, downsample_frame
 
@@ -188,8 +188,8 @@ class SimulationGenerator:
         self.thread = None
         self.frame_count = 0
 
-        # High-resolution simulation (2x scale for performance)
-        self.simulation = FluidSimulation(width * 2, height * 2)
+        # Run simulation at LED panel resolution for performance
+        self.simulation = FluidSimulation(width, height)
         self.downsample_frame = downsample_frame
 
         # WebSocket subscribers for high-res preview
@@ -223,18 +223,16 @@ class SimulationGenerator:
                 # Step simulation
                 self.simulation.step()
 
-                # Render high-res frame
-                hires_frame = self.simulation.render_frame()
+                # Render frame (at LED panel resolution)
+                frame = self.simulation.render_frame()
 
-                # Broadcast to WebSocket subscribers
-                self._broadcast_hires_frame(hires_frame)
-
-                # Downsample for LED panel
-                led_frame = self.downsample_frame(hires_frame, (self.height, self.width))
+                # Broadcast to WebSocket subscribers (only if connected)
+                if self.hires_subscribers:
+                    self._broadcast_hires_frame(frame)
 
                 # Send to display
                 try:
-                    self.frame_queue.put_nowait(led_frame)
+                    self.frame_queue.put_nowait(frame)
                 except queue.Full:
                     logger.debug("Frame queue full, dropping simulation frame")
 

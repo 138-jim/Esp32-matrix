@@ -68,7 +68,7 @@ class FluidSimulation:
         self.gravity = 0.15  # Downward force
 
         # Solver parameters
-        self.solver_iterations = 5  # Jacobi iterations for pressure/diffusion (reduced for performance)
+        self.solver_iterations = 2  # Jacobi iterations for pressure/diffusion (minimal for performance)
 
         # Blob particles (lava wax)
         self.blobs: List[Blob] = []
@@ -79,7 +79,7 @@ class FluidSimulation:
 
     def _initialize_blobs(self):
         """Initialize blob particles at random positions"""
-        num_blobs = 6
+        num_blobs = 3  # Reduced for performance
 
         for i in range(num_blobs):
             # Random position
