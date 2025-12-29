@@ -26,8 +26,8 @@
 ### Phase 3: Math/Physics
 12. ✅ Plasma Effect - Multi-sine wave colors (APPROVED)
 13. ✅ Perlin Noise Flow - Organic color fields (APPROVED)
-14. 🟡 Kaleidoscope - Symmetric mirroring (IN PROGRESS)
-15. 🔴 Geometric Patterns - Rotating shapes
+14. ✅ Kaleidoscope - Symmetric mirroring (APPROVED)
+15. 🟡 Geometric Patterns - Rotating shapes (IN PROGRESS)
 16. 🔴 Starfield - Parallax scrolling stars
 
 ### Phase 4: Advanced Animations

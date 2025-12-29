@@ -1382,6 +1382,146 @@ def kaleidoscope(width: int, height: int, offset: float = 0) -> np.ndarray:
     return frame
 
 
+def geometric_patterns(width: int, height: int, offset: float = 0) -> np.ndarray:
+    """
+    Create animated geometric patterns with rotating shapes
+
+    Multiple geometric shapes (triangles, squares, hexagons, circles)
+    rotating and scaling with vibrant colors
+
+    Args:
+        width: Frame width (32)
+        height: Frame height (32)
+        offset: Animation time offset
+
+    Returns:
+        Frame array with geometric patterns
+    """
+    frame = np.zeros((height, width, 3), dtype=np.uint8)
+
+    # Dark background
+    frame[:, :] = [10, 10, 15]
+
+    # Center point
+    cx = width / 2.0
+    cy = height / 2.0
+
+    # Draw multiple rotating shapes
+    num_shapes = 4
+    for shape_id in range(num_shapes):
+        # Each shape has different properties
+        rotation = offset * (0.5 + shape_id * 0.3)
+        scale = 0.3 + shape_id * 0.15
+
+        # Shape type cycles through: triangle, square, hexagon, circle
+        shape_type = shape_id % 4
+
+        # Color for this shape
+        hue = (shape_id * 0.25 + offset * 0.05) % 1.0
+        r, g, b = colorsys.hsv_to_rgb(hue, 1.0, 1.0)
+        color = [int(r * 255), int(g * 255), int(b * 255)]
+
+        # Oscillating size
+        size_mod = 0.8 + 0.2 * math.sin(offset * 2.0 + shape_id)
+        radius = (5 + shape_id * 3) * scale * size_mod
+
+        if shape_type == 0:
+            # Triangle (3 vertices)
+            draw_polygon(frame, cx, cy, radius, 3, rotation, color)
+        elif shape_type == 1:
+            # Square (4 vertices)
+            draw_polygon(frame, cx, cy, radius, 4, rotation, color)
+        elif shape_type == 2:
+            # Hexagon (6 vertices)
+            draw_polygon(frame, cx, cy, radius, 6, rotation, color)
+        else:
+            # Circle
+            draw_circle(frame, cx, cy, radius, color)
+
+    return frame
+
+
+def draw_polygon(frame, cx, cy, radius, num_sides, rotation, color):
+    """Draw a polygon outline"""
+    height, width = frame.shape[:2]
+
+    # Calculate vertices
+    vertices = []
+    for i in range(num_sides):
+        angle = rotation + (i / num_sides) * 2 * math.pi
+        x = cx + radius * math.cos(angle)
+        y = cy + radius * math.sin(angle)
+        vertices.append((x, y))
+
+    # Draw lines between vertices
+    for i in range(num_sides):
+        x1, y1 = vertices[i]
+        x2, y2 = vertices[(i + 1) % num_sides]
+        draw_line(frame, x1, y1, x2, y2, color)
+
+
+def draw_line(frame, x1, y1, x2, y2, color):
+    """Draw a line using Bresenham's algorithm"""
+    height, width = frame.shape[:2]
+
+    # Bresenham's line algorithm
+    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+
+    dx = abs(x2 - x1)
+    dy = abs(y2 - y1)
+    sx = 1 if x1 < x2 else -1
+    sy = 1 if y1 < y2 else -1
+    err = dx - dy
+
+    while True:
+        if 0 <= x1 < width and 0 <= y1 < height:
+            frame[y1, x1] = color
+
+        if x1 == x2 and y1 == y2:
+            break
+
+        e2 = 2 * err
+        if e2 > -dy:
+            err -= dy
+            x1 += sx
+        if e2 < dx:
+            err += dx
+            y1 += sy
+
+
+def draw_circle(frame, cx, cy, radius, color):
+    """Draw a circle outline"""
+    height, width = frame.shape[:2]
+
+    # Midpoint circle algorithm
+    x = 0
+    y = int(radius)
+    d = 1 - radius
+
+    def plot_circle_points(xc, yc, x, y):
+        points = [
+            (xc + x, yc + y), (xc - x, yc + y),
+            (xc + x, yc - y), (xc - x, yc - y),
+            (xc + y, yc + x), (xc - y, yc + x),
+            (xc + y, yc - x), (xc - y, yc - x)
+        ]
+        for px, py in points:
+            ix, iy = int(px), int(py)
+            if 0 <= ix < width and 0 <= iy < height:
+                frame[iy, ix] = color
+
+    plot_circle_points(cx, cy, x, y)
+
+    while x < y:
+        x += 1
+        if d < 0:
+            d += 2 * x + 1
+        else:
+            y -= 1
+            d += 2 * (x - y) + 1
+        plot_circle_points(cx, cy, x, y)
+
+
 def rain(width: int, height: int, offset: float = 0) -> np.ndarray:
     """
     Create rain effect with falling droplets and ripples
@@ -2060,6 +2200,7 @@ PATTERNS = {
     "plasma": plasma,
     "perlin_noise_flow": perlin_noise_flow,
     "kaleidoscope": kaleidoscope,
+    "geometric_patterns": geometric_patterns,
 }
 
 
