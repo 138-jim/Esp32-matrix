@@ -5,11 +5,6 @@ let currentConfig = null;
 // API base URL
 const API_BASE = window.location.origin;
 
-// Fluid simulation WebSocket and canvas
-let simulationSocket = null;
-let simulationCanvas = null;
-let simulationCtx = null;
-
 // Update clock display
 function updateClock() {
     const now = new Date();
@@ -127,73 +122,9 @@ async function savePowerLimit() {
     }
 }
 
-// Initialize simulation display
-function initSimulationDisplay() {
-    simulationCanvas = document.getElementById('simulationCanvas');
-    if (simulationCanvas) {
-        simulationCtx = simulationCanvas.getContext('2d');
-        console.log('Simulation canvas initialized');
-    }
-}
-
-// Connect to simulation WebSocket stream
-function connectSimulationStream() {
-    // Close existing connection if any
-    if (simulationSocket) {
-        simulationSocket.close();
-    }
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/simulation`;
-
-    console.log('Connecting to simulation stream:', wsUrl);
-    simulationSocket = new WebSocket(wsUrl);
-
-    simulationSocket.onopen = () => {
-        console.log('Simulation stream connected');
-        document.getElementById('simulationPanel').style.display = 'block';
-    };
-
-    simulationSocket.onmessage = (event) => {
-        // Decode base64 JPEG and render to canvas
-        const img = new Image();
-        img.onload = () => {
-            // Draw to canvas (512x512 display, upscales from 128x128)
-            if (simulationCtx) {
-                simulationCtx.drawImage(img, 0, 0, 512, 512);
-            }
-        };
-        img.src = 'data:image/jpeg;base64,' + event.data;
-    };
-
-    simulationSocket.onerror = (error) => {
-        console.error('Simulation stream error:', error);
-    };
-
-    simulationSocket.onclose = () => {
-        console.log('Simulation stream closed');
-        document.getElementById('simulationPanel').style.display = 'none';
-    };
-}
-
-// Disconnect from simulation WebSocket stream
-function disconnectSimulationStream() {
-    if (simulationSocket) {
-        console.log('Disconnecting simulation stream');
-        simulationSocket.close();
-        simulationSocket = null;
-    }
-    // Hide simulation panel
-    const panel = document.getElementById('simulationPanel');
-    if (panel) {
-        panel.style.display = 'none';
-    }
-}
-
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
     console.log('LED Display Driver UI loaded');
-    initSimulationDisplay();  // Initialize simulation canvas
     refreshConfig();
     refreshStatus();
     loadSleepSchedule();
@@ -362,13 +293,6 @@ async function testPattern(patternName) {
 
         showStatus(`Pattern started: ${patternName}`, 'success');
 
-        // Connect to simulation stream if lava_lamp, disconnect otherwise
-        if (patternName === 'lava_lamp') {
-            connectSimulationStream();
-        } else {
-            disconnectSimulationStream();
-        }
-
     } catch (error) {
         console.error('Error displaying pattern:', error);
         showStatus(`Error displaying pattern: ${error.message}`, 'error');
@@ -391,9 +315,6 @@ async function stopPattern() {
         }
 
         showStatus('Pattern stopped', 'success');
-
-        // Disconnect simulation stream if running
-        disconnectSimulationStream();
 
     } catch (error) {
         console.error('Error stopping pattern:', error);

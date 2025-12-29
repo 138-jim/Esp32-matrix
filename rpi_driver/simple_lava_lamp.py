@@ -47,67 +47,57 @@ class SimpleLavaLamp:
         return (x, y)
 
     def render_frame(self) -> np.ndarray:
-        """Render current frame"""
-        frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
-
+        """Render current frame using vectorized NumPy operations"""
         # Current time
         t = time.time() - self.start_time
 
-        # Normalize coordinates to -0.5 to 0.5
-        for py in range(self.height):
-            for px in range(self.width):
-                # Normalize pixel position to [-0.5, 0.5]
-                uv_x = (px / self.width) - 0.5
-                uv_y = (py / self.height) - 0.5
+        # Create coordinate grids (vectorized)
+        x = np.linspace(-0.5, 0.5, self.width)
+        y = np.linspace(-0.5, 0.5, self.height)
+        xx, yy = np.meshgrid(x, y)
 
-                # Aspect ratio correction (assuming square panels)
-                # uv_x *= self.width / self.height
+        # Initialize metaball field
+        field = np.zeros((self.height, self.width), dtype=np.float32)
 
-                # Metaball field accumulator
-                field = 0.0
+        # Add contribution from all blobs
+        for i in range(len(self.blobs)):
+            blob_x, blob_y = self.get_blob_position(i, t)
 
-                # Add contribution from all blobs
-                for i in range(len(self.blobs)):
-                    blob_x, blob_y = self.get_blob_position(i, t)
+            # Temperature scaling based on Y position
+            temp_scale = self.scale_by_temp(blob_y + 0.5)
+            radius = self.blobs[i]['radius'] * max(0.5, temp_scale * 2.0)
 
-                    # Temperature scaling based on Y position
-                    temp_scale = self.scale_by_temp(blob_y + 0.5)
-                    radius = self.blobs[i]['radius'] * max(0.5, temp_scale * 2.0)
+            # Distance from each pixel to blob center (vectorized)
+            dx = xx - blob_x
+            dy = yy - blob_y
+            dist = np.sqrt(dx * dx + dy * dy) + 0.001  # Add small value to avoid division by zero
 
-                    # Distance from pixel to blob center
-                    dx = uv_x - blob_x
-                    dy = uv_y - blob_y
-                    dist = math.sqrt(dx * dx + dy * dy)
+            # Metaball contribution: radius / distance
+            field += radius / dist
 
-                    # Metaball contribution: radius / distance
-                    if dist > 0.001:  # Avoid division by zero
-                        field += radius / dist
+        # Create frame
+        frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
 
-                # Threshold and color based on field strength
-                if field > 0.5:  # Threshold for blob visibility
-                    # Normalize field for color intensity
-                    intensity = min(1.0, field / 2.0)
+        # Background color - dark purple
+        frame[:, :] = [10, 0, 20]
 
-                    # Lava lamp colors - orange/yellow when hot (top), red when cool (bottom)
-                    # Y position determines temperature
-                    temp = (py / self.height)  # 0 = top (hot), 1 = bottom (cool)
+        # Apply threshold and color
+        mask = field > 0.5
+        if np.any(mask):
+            # Normalize field for color intensity
+            intensity = np.clip(field / 2.0, 0, 1)
 
-                    if temp < 0.3:  # Hot (top) - bright yellow/orange
-                        r = int(255 * intensity)
-                        g = int(200 * intensity)
-                        b = int(50 * intensity)
-                    elif temp < 0.6:  # Warm - orange
-                        r = int(255 * intensity)
-                        g = int(150 * intensity)
-                        b = int(30 * intensity)
-                    else:  # Cool (bottom) - red
-                        r = int(220 * intensity)
-                        g = int(50 * intensity)
-                        b = int(20 * intensity)
+            # Temperature based on Y position (0 = top/hot, 1 = bottom/cool)
+            temp = np.linspace(0, 1, self.height)[:, np.newaxis]
 
-                    frame[py, px] = [r, g, b]
-                else:
-                    # Background color - dark purple
-                    frame[py, px] = [10, 0, 20]
+            # Color channels based on temperature and intensity
+            r = np.where(temp < 0.3, 255, np.where(temp < 0.6, 255, 220)) * intensity
+            g = np.where(temp < 0.3, 200, np.where(temp < 0.6, 150, 50)) * intensity
+            b = np.where(temp < 0.3, 50, np.where(temp < 0.6, 30, 20)) * intensity
+
+            # Apply colors where field exceeds threshold
+            frame[mask, 0] = r[mask].astype(np.uint8)
+            frame[mask, 1] = g[mask].astype(np.uint8)
+            frame[mask, 2] = b[mask].astype(np.uint8)
 
         return frame

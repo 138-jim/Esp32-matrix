@@ -191,9 +191,6 @@ class SimulationGenerator:
         # Simple lava lamp animation (fast sin/cos based)
         self.simulation = SimpleLavaLamp(width, height)
 
-        # WebSocket subscribers for high-res preview
-        self.hires_subscribers = []
-
     def start(self) -> None:
         """Start fluid simulation"""
         if self.running:
@@ -219,21 +216,14 @@ class SimulationGenerator:
             while self.running:
                 start_time = time.time()
 
-                # Step simulation
-                self.simulation.step()
-
                 # Render frame (at LED panel resolution)
                 frame = self.simulation.render_frame()
-
-                # Broadcast to WebSocket subscribers (only if connected)
-                if self.hires_subscribers:
-                    self._broadcast_hires_frame(frame)
 
                 # Send to display
                 try:
                     self.frame_queue.put_nowait(frame)
                 except queue.Full:
-                    logger.debug("Frame queue full, dropping simulation frame")
+                    logger.debug("Frame queue full, dropping frame")
 
                 self.frame_count += 1
 
@@ -247,37 +237,6 @@ class SimulationGenerator:
             logger.error(f"Simulation generator error: {e}", exc_info=True)
         finally:
             self.running = False
-
-    def _broadcast_hires_frame(self, frame: np.ndarray) -> None:
-        """Send high-res frame to all WebSocket subscribers"""
-        if not self.hires_subscribers:
-            return
-
-        try:
-            from PIL import Image
-            import io
-            import base64
-
-            # Encode as JPEG for efficient transmission
-            img = Image.fromarray(frame)
-            buffer = io.BytesIO()
-            img.save(buffer, format='JPEG', quality=85)
-            jpeg_data = base64.b64encode(buffer.getvalue()).decode('utf-8')
-
-            # Remove disconnected clients
-            dead_clients = []
-            for ws in self.hires_subscribers:
-                try:
-                    # Note: This is called from sync thread, will be wrapped in async
-                    ws._pending_frame = jpeg_data
-                except Exception:
-                    dead_clients.append(ws)
-
-            for ws in dead_clients:
-                self.hires_subscribers.remove(ws)
-
-        except Exception as e:
-            logger.error(f"Error broadcasting frame: {e}")
 
     def is_running(self) -> bool:
         """Check if simulation is currently running"""
@@ -778,33 +737,6 @@ class WebAPIServer:
                     self.preview_connections.remove(websocket)
 
         # WebSocket for fluid simulation streaming
-        @self.app.websocket("/ws/simulation")
-        async def websocket_simulation(websocket: WebSocket):
-            """WebSocket endpoint for streaming high-res fluid simulation"""
-            await websocket.accept()
-            self.simulation_generator.hires_subscribers.append(websocket)
-            logger.info("Simulation WebSocket client connected")
-
-            try:
-                # Keep connection alive and send frames
-                while True:
-                    # Check if there's a pending frame
-                    if hasattr(websocket, '_pending_frame'):
-                        frame_data = websocket._pending_frame
-                        delattr(websocket, '_pending_frame')
-                        await websocket.send_text(frame_data)
-                    else:
-                        # Small delay to avoid busy waiting
-                        await asyncio.sleep(0.01)
-
-            except WebSocketDisconnect:
-                logger.info("Simulation WebSocket client disconnected")
-            except Exception as e:
-                logger.error(f"Simulation WebSocket error: {e}")
-            finally:
-                if websocket in self.simulation_generator.hires_subscribers:
-                    self.simulation_generator.hires_subscribers.remove(websocket)
-
     def get_app(self) -> FastAPI:
         """Get FastAPI application instance"""
         return self.app
