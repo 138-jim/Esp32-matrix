@@ -525,6 +525,93 @@ def beating_heart(width: int, height: int, offset: float = 0) -> np.ndarray:
     return frame
 
 
+def snow(width: int, height: int, offset: float = 0) -> np.ndarray:
+    """
+    Create snow effect with falling snowflakes and wind drift
+
+    Snowflakes fall slowly with horizontal wind drift and varying sizes
+
+    Args:
+        width: Frame width (32)
+        height: Frame height (32)
+        offset: Animation time offset
+
+    Returns:
+        Frame array with snow effect
+    """
+    frame = np.zeros((height, width, 3), dtype=np.uint8)
+
+    # Dark blue-gray winter sky background
+    for y in range(height):
+        for x in range(width):
+            # Slightly lighter than rain for snowy day
+            brightness = int(8 + (y / height) * 4)
+            frame[y, x] = [brightness, brightness, brightness + 5]
+
+    # Number of snowflakes
+    num_flakes = 40
+
+    # Wind effect (oscillates left/right)
+    wind = math.sin(offset * 0.3) * 3.0
+
+    for flake_id in range(num_flakes):
+        # Consistent base x position for each flake
+        base_x = (flake_id * 67) % width
+
+        # Slower speed than rain
+        speed = 0.8 + (flake_id % 4) * 0.3
+
+        # Calculate flake y position (falls down slowly)
+        flake_y_raw = int((offset * speed + flake_id * 5) % (height + 15))
+        flake_y = height - 1 - flake_y_raw
+
+        # Add wind drift - accumulates over time as flake falls
+        wind_drift = int((flake_y_raw / height) * wind)
+        flake_x = (base_x + wind_drift) % width
+
+        # Snowflake size varies
+        size = 1 + (flake_id % 3)  # Size 1, 2, or 3
+
+        # Draw snowflake
+        if 0 <= flake_y < height:
+            if size == 1:
+                # Small flake - single pixel
+                frame[flake_y, flake_x] = [220, 220, 255]
+
+            elif size == 2:
+                # Medium flake - cross pattern
+                frame[flake_y, flake_x] = [240, 240, 255]
+                # Add cross arms
+                if flake_x > 0:
+                    frame[flake_y, flake_x - 1] = [180, 180, 220]
+                if flake_x < width - 1:
+                    frame[flake_y, (flake_x + 1) % width] = [180, 180, 220]
+                if flake_y < height - 1:
+                    frame[flake_y + 1, flake_x] = [180, 180, 220]
+                if flake_y > 0:
+                    frame[flake_y - 1, flake_x] = [180, 180, 220]
+
+            else:  # size == 3
+                # Large flake - plus with diagonals
+                frame[flake_y, flake_x] = [255, 255, 255]
+                # Cross
+                if flake_x > 0:
+                    frame[flake_y, flake_x - 1] = [200, 200, 240]
+                if flake_x < width - 1:
+                    frame[flake_y, (flake_x + 1) % width] = [200, 200, 240]
+                if flake_y < height - 1:
+                    frame[flake_y + 1, flake_x] = [200, 200, 240]
+                if flake_y > 0:
+                    frame[flake_y - 1, flake_x] = [200, 200, 240]
+                # Diagonals
+                if flake_y > 0 and flake_x > 0:
+                    frame[flake_y - 1, flake_x - 1] = [160, 160, 200]
+                if flake_y > 0 and flake_x < width - 1:
+                    frame[flake_y - 1, (flake_x + 1) % width] = [160, 160, 200]
+
+    return frame
+
+
 def rain(width: int, height: int, offset: float = 0) -> np.ndarray:
     """
     Create rain effect with falling droplets and ripples
@@ -1195,6 +1282,7 @@ PATTERNS = {
     "sunset_sunrise": sunset_sunrise,
     "sunset_sunrise_loop": sunset_sunrise_loop,
     "rain": rain,
+    "snow": snow,
 }
 
 

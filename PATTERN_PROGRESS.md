@@ -16,8 +16,8 @@
 5. ✅ Sunset/Sunrise - Color shift animation (APPROVED) - includes loop version
 
 ### Phase 2: Natural Effects
-6. 🟢 Rain - Falling droplets (TESTING - waiting for user)
-7. 🔴 Snow - Falling snowflakes
+6. ✅ Rain - Falling droplets (APPROVED)
+7. 🟢 Snow - Falling snowflakes (TESTING - waiting for user)
 8. 🔴 Fireflies - Gentle blinking lights
 9. 🔴 Aquarium - Swimming fish
 10. 🔴 Ocean Waves - Perlin noise waves
