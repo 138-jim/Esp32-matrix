@@ -525,6 +525,53 @@ def beating_heart(width: int, height: int, offset: float = 0) -> np.ndarray:
     return frame
 
 
+def gradient_waves(width: int, height: int, offset: float = 0) -> np.ndarray:
+    """
+    Create flowing gradient patterns using sine wave interference
+
+    Multiple sine waves interfere to create smooth, flowing color patterns
+
+    Args:
+        width: Frame width (32)
+        height: Frame height (32)
+        offset: Animation time offset
+
+    Returns:
+        Frame array with gradient wave patterns
+    """
+    frame = np.zeros((height, width, 3), dtype=np.uint8)
+
+    for y in range(height):
+        for x in range(width):
+            # Multiple sine waves with different frequencies and phases
+            wave1 = math.sin(x * 0.2 + offset * 0.5)
+            wave2 = math.sin(y * 0.2 + offset * 0.7)
+            wave3 = math.sin((x + y) * 0.15 + offset * 0.3)
+            wave4 = math.sin((x - y) * 0.1 + offset * 0.4)
+
+            # Combine waves for different color channels
+            # Red channel: horizontal and diagonal waves
+            red_intensity = (wave1 + wave3) / 2.0
+            red_intensity = (red_intensity + 1.0) / 2.0  # Normalize to 0-1
+
+            # Green channel: vertical and opposite diagonal waves
+            green_intensity = (wave2 + wave4) / 2.0
+            green_intensity = (green_intensity + 1.0) / 2.0
+
+            # Blue channel: combination of all waves
+            blue_intensity = (wave1 + wave2 + wave3 + wave4) / 4.0
+            blue_intensity = (blue_intensity + 1.0) / 2.0
+
+            # Apply to frame
+            frame[y, x] = [
+                int(red_intensity * 255),
+                int(green_intensity * 255),
+                int(blue_intensity * 255)
+            ]
+
+    return frame
+
+
 def color_gradients(width: int, height: int, offset: float = 0) -> np.ndarray:
     """
     Create smooth cycling color gradient transitions
@@ -684,6 +731,7 @@ PATTERNS = {
     "heart": beating_heart,
     "starry_night": starry_night,
     "color_gradients": color_gradients,
+    "gradient_waves": gradient_waves,
 }
 
 
