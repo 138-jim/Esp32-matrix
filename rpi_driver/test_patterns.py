@@ -867,6 +867,24 @@ def ocean_waves(width: int, height: int, offset: float = 0) -> np.ndarray:
             wave4 = math.sin(x * 0.15 + offset * 0.4) * 2.5
             wave_field[y, x] += wave4
 
+    # Layer 5: Medium frequency diagonal waves
+    for x in range(width):
+        for y in range(height):
+            wave5 = math.sin(x * 0.6 + y * 0.4 + offset * 1.5) * 1.5
+            wave_field[y, x] += wave5
+
+    # Layer 6: High frequency cross-waves
+    for x in range(width):
+        for y in range(height):
+            wave6 = math.sin(x * 1.0 + y * 0.1 + offset * 2.5) * 0.8
+            wave_field[y, x] += wave6
+
+    # Layer 7: Opposite direction waves
+    for x in range(width):
+        for y in range(height):
+            wave7 = math.sin(-x * 0.4 + y * 0.25 + offset * 1.0) * 1.2
+            wave_field[y, x] += wave7
+
     # Normalize wave field to 0-1 range
     wave_min = np.min(wave_field)
     wave_max = np.max(wave_field)
@@ -881,27 +899,27 @@ def ocean_waves(width: int, height: int, offset: float = 0) -> np.ndarray:
             # Depth gradient (Y=0 is bottom, Y=height-1 is top)
             depth = (height - 1 - y) / height  # 0 at bottom, 1 at top
 
-            # Base ocean colors (blues and cyans)
-            # Deeper water = darker, shallower = lighter
-            base_blue = int(40 + depth * 80 + wave_height * 40)  # 40-160
-            base_green = int(20 + depth * 60 + wave_height * 60)  # 20-140
+            # Dark ocean colors (deep blues)
+            # Much darker base colors for deep ocean look
+            base_blue = int(20 + depth * 40 + wave_height * 30)  # 20-90 (darker)
+            base_green = int(5 + depth * 25 + wave_height * 20)  # 5-50 (much darker)
 
             # Wave crests (high wave_height) get lighter/white
             if wave_height > 0.75:
                 # White foam on crests
                 foam_intensity = (wave_height - 0.75) / 0.25
-                r = int(foam_intensity * 200)
-                g = int(base_green + foam_intensity * (255 - base_green))
-                b = int(base_blue + foam_intensity * (255 - base_blue))
+                r = int(foam_intensity * 180)
+                g = int(base_green + foam_intensity * (200 - base_green))
+                b = int(base_blue + foam_intensity * (220 - base_blue))
                 frame[y, x] = [r, g, b]
             elif wave_height > 0.6:
                 # Light cyan on upper waves
                 r = 0
-                g = int(base_green + (wave_height - 0.6) * 100)
-                b = int(base_blue + (wave_height - 0.6) * 80)
+                g = int(base_green + (wave_height - 0.6) * 60)
+                b = int(base_blue + (wave_height - 0.6) * 70)
                 frame[y, x] = [r, g, b]
             else:
-                # Deep ocean blue
+                # Deep dark ocean blue
                 frame[y, x] = [0, base_green, base_blue]
 
     return frame
