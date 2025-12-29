@@ -18,8 +18,8 @@
 ### Phase 2: Natural Effects
 6. ✅ Rain - Falling droplets (APPROVED)
 7. ✅ Snow - Falling snowflakes (APPROVED)
-8. 🟡 Fireflies - Gentle blinking lights (IN PROGRESS)
-9. 🔴 Aquarium - Swimming fish
+8. ✅ Fireflies - Gentle blinking lights (APPROVED)
+9. 🟡 Aquarium - Swimming fish (IN PROGRESS)
 10. 🔴 Ocean Waves - Perlin noise waves
 11. 🔴 Northern Lights - Aurora effect
 

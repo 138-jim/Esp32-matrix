@@ -705,6 +705,123 @@ def fireflies(width: int, height: int, offset: float = 0) -> np.ndarray:
     return frame
 
 
+def aquarium(width: int, height: int, offset: float = 0) -> np.ndarray:
+    """
+    Create aquarium effect with swimming fish and rising bubbles
+
+    Fish swim horizontally with varying speeds and bubbles rise from bottom
+
+    Args:
+        width: Frame width (32)
+        height: Frame height (32)
+        offset: Animation time offset
+
+    Returns:
+        Frame array with aquarium effect
+    """
+    frame = np.zeros((height, width, 3), dtype=np.uint8)
+
+    # Blue water background (gradient from light blue at top to deeper blue at bottom)
+    for y in range(height):
+        depth_factor = y / height
+        # Light blue at top, darker blue at bottom
+        blue_intensity = int(100 + depth_factor * 80)  # 100-180
+        green_intensity = int(60 + depth_factor * 40)   # 60-100
+        frame[y, :] = [0, green_intensity, blue_intensity]
+
+    # Draw seaweed/plants at bottom
+    num_plants = 5
+    for plant_id in range(num_plants):
+        plant_x = (plant_id * 7 + 3) % width
+        plant_height = 3 + (plant_id % 3)
+
+        # Swaying effect
+        sway = int(math.sin(offset * 1.5 + plant_id) * 1.5)
+
+        for seg in range(plant_height):
+            seg_y = height - 1 - seg
+            seg_x = (plant_x + (sway if seg > 1 else 0)) % width
+            if 0 <= seg_y < height:
+                # Dark green plant
+                frame[seg_y, seg_x] = [10, 80 + seg * 10, 20]
+
+    # Swimming fish
+    num_fish = 8
+    for fish_id in range(num_fish):
+        # Fish swim horizontally at different speeds
+        speed = 3.0 + (fish_id % 4) * 1.5
+
+        # Some fish swim left, some right
+        if fish_id % 3 == 0:
+            direction = -1  # Left
+        else:
+            direction = 1   # Right
+
+        fish_x_raw = (offset * speed * direction + fish_id * 40) % (width + 8)
+        fish_x = int(fish_x_raw) - 4
+
+        # Fish at different depths
+        fish_y = 5 + (fish_id * 3) % (height - 10)
+
+        # Vertical bobbing
+        bob = int(math.sin(offset * 2.0 + fish_id * 0.7) * 1.0)
+        fish_y = fish_y + bob
+
+        # Fish color variations (orange, yellow, red, blue)
+        if fish_id % 4 == 0:
+            fish_color = [255, 140, 0]   # Orange
+        elif fish_id % 4 == 1:
+            fish_color = [255, 200, 0]   # Yellow
+        elif fish_id % 4 == 2:
+            fish_color = [255, 60, 60]   # Red
+        else:
+            fish_color = [100, 150, 255] # Light blue
+
+        # Draw fish (simple 3-pixel shape)
+        # Body: 2 pixels, tail: 1 pixel
+        if 0 <= fish_y < height:
+            # Body (2x2 square)
+            for dy in [0, 1]:
+                for dx in [0, 1]:
+                    px = fish_x + dx
+                    py = fish_y + dy
+                    if 0 <= px < width and 0 <= py < height:
+                        frame[py, px] = fish_color
+
+            # Tail (1 pixel behind, in swimming direction)
+            tail_x = fish_x - direction
+            tail_y = fish_y
+            if 0 <= tail_x < width and 0 <= tail_y < height:
+                # Darker tail
+                frame[tail_y, tail_x] = [
+                    fish_color[0] // 2,
+                    fish_color[1] // 2,
+                    fish_color[2] // 2
+                ]
+
+    # Rising bubbles
+    num_bubbles = 15
+    for bubble_id in range(num_bubbles):
+        # Bubbles rise from bottom
+        rise_speed = 2.0 + (bubble_id % 3) * 0.5
+
+        bubble_y_raw = (offset * rise_speed + bubble_id * 7) % (height + 10)
+        bubble_y = height - int(bubble_y_raw)
+
+        bubble_x = (bubble_id * 11 + 2) % width
+
+        # Slight horizontal drift
+        drift = int(math.sin(offset * 1.0 + bubble_id * 0.5) * 1.0)
+        bubble_x = (bubble_x + drift) % width
+
+        # Draw bubble (white/light cyan, semi-transparent effect)
+        if 0 <= bubble_y < height and 0 <= bubble_x < width:
+            # Small bubble - single bright pixel
+            frame[bubble_y, bubble_x] = [200, 220, 255]
+
+    return frame
+
+
 def rain(width: int, height: int, offset: float = 0) -> np.ndarray:
     """
     Create rain effect with falling droplets and ripples
@@ -1377,6 +1494,7 @@ PATTERNS = {
     "rain": rain,
     "snow": snow,
     "fireflies": fireflies,
+    "aquarium": aquarium,
 }
 
 
