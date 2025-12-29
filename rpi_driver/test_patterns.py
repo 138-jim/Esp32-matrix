@@ -920,7 +920,7 @@ def ocean_waves(width: int, height: int, offset: float = 0) -> np.ndarray:
                 frame[y, x] = [r, g, b]
             else:
                 # Deep dark ocean blue
-                frame[y, x] = [0, base_green, base_blue]
+                frame[y, x] = [0, base_green // 2, base_blue // 2]
 
     return frame
 
