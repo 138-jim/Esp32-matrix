@@ -1664,7 +1664,7 @@ def lava_lamp(width: int, height: int, offset: float = 0) -> np.ndarray:
     Create lava lamp effect with physics simulation
 
     Simulates actual lava lamp behavior: blobs heat up at bottom, rise,
-    cool at top, and sink back down.
+    cool at top, split apart, and sink back down as smaller pieces.
 
     Args:
         width: Frame width (32)
@@ -1677,51 +1677,63 @@ def lava_lamp(width: int, height: int, offset: float = 0) -> np.ndarray:
     frame = np.zeros((height, width, 3), dtype=np.uint8)
 
     # Dark background
-    frame[:, :] = [10, 0, 20]
+    frame[:, :] = [5, 0, 15]
 
-    # Simulate blobs with physics
-    num_blobs = 6
+    # Heat source at bottom (bright glow)
+    for y in range(3):
+        for x in range(width):
+            glow = int(40 - y * 10)
+            frame[y, x] = [glow, glow // 3, 0]
+
+    # Simulate blobs with splitting/merging behavior
     blob_data = []
 
-    for blob_id in range(num_blobs):
-        # Each blob has its own cycle period
+    # Main parent blobs (4 large blobs)
+    num_parents = 4
+    for blob_id in range(num_parents):
         blob_seed = blob_id * 137
-        cycle_period = 15.0 + ((blob_seed * 23) % 50) / 10.0  # 15-20 seconds per cycle
+        cycle_period = 18.0 + ((blob_seed * 23) % 40) / 10.0
         phase_offset = ((blob_seed * 41) % 100) / 10.0
 
-        # Current position in cycle (0 to 1)
         cycle_pos = ((offset + phase_offset) / cycle_period) % 1.0
 
-        # Blob oscillates vertically like real lava lamp
-        # Bottom: Y=0-5, Top: Y=height-5 to height
-        if cycle_pos < 0.45:
-            # Rising phase (bottom to top)
-            rise_progress = cycle_pos / 0.45
-            # Ease in-out for smooth motion
+        # Main blob rises and sinks
+        if cycle_pos < 0.4:
+            # Rising phase
+            rise_progress = cycle_pos / 0.4
             eased = rise_progress * rise_progress * (3.0 - 2.0 * rise_progress)
-            blob_y = 3 + eased * (height - 6)
-        elif cycle_pos < 0.55:
-            # Pause at top
-            blob_y = height - 3
+            blob_y = 4 + eased * (height - 8)
+            is_split = False
+        elif cycle_pos < 0.6:
+            # At top - blob splits into smaller pieces
+            blob_y = height - 4
+            is_split = True
         else:
-            # Sinking phase (top to bottom)
-            sink_progress = (cycle_pos - 0.55) / 0.45
-            # Ease in-out for smooth motion
+            # Sinking phase - pieces sink separately
+            sink_progress = (cycle_pos - 0.6) / 0.4
             eased = sink_progress * sink_progress * (3.0 - 2.0 * sink_progress)
-            blob_y = (height - 3) - eased * (height - 6)
+            blob_y = (height - 4) - eased * (height - 8)
+            is_split = True
 
-        # Slight horizontal drift
-        drift_offset = ((blob_seed * 19) % width)
-        blob_x = width / 2 + 3 * math.sin(offset * 0.3 + blob_id * 2.1) + (drift_offset % 10) - 5
+        blob_x = width / 2 + 4 * math.sin(offset * 0.25 + blob_id * 2.3)
 
-        # Temperature based on height (hot at bottom, cool at top)
-        temp_factor = 1.0 - (blob_y / height)  # 1.0 at bottom, 0.0 at top
+        temp_factor = 1.0 - (blob_y / height)
 
-        # Blob size varies slightly with temperature (larger when hot)
-        base_size = 28.0 + ((blob_seed * 17) % 10)
-        blob_size = base_size * (0.9 + temp_factor * 0.2)
-
-        blob_data.append((blob_x, blob_y, blob_size, temp_factor))
+        if not is_split:
+            # Single large blob when hot/rising
+            base_size = 35.0
+            blob_size = base_size * (0.85 + temp_factor * 0.3)
+            blob_data.append((blob_x, blob_y, blob_size, temp_factor))
+        else:
+            # Split into 2-3 smaller blobs when cool
+            num_pieces = 2 + (blob_id % 2)
+            for piece_id in range(num_pieces):
+                piece_angle = (piece_id / num_pieces) * 2 * math.pi
+                piece_x = blob_x + 3 * math.cos(piece_angle + offset * 0.5)
+                piece_y = blob_y + 2 * math.sin(piece_angle * 2 + offset * 0.7)
+                piece_size = 18.0 + ((blob_seed + piece_id * 17) % 8)
+                piece_temp = temp_factor * 0.7  # Cooler when split
+                blob_data.append((piece_x, piece_y, piece_size, piece_temp))
 
     # Calculate metaball field for each pixel
     for y in range(height):
