@@ -612,6 +612,109 @@ def snow(width: int, height: int, offset: float = 0) -> np.ndarray:
     return frame
 
 
+def fireflies(width: int, height: int, offset: float = 0) -> np.ndarray:
+    """
+    Create fireflies effect with gentle blinking lights
+
+    Fireflies drift slowly with pulsing yellow-green bioluminescent glow
+
+    Args:
+        width: Frame width (32)
+        height: Frame height (32)
+        offset: Animation time offset
+
+    Returns:
+        Frame array with fireflies effect
+    """
+    frame = np.zeros((height, width, 3), dtype=np.uint8)
+
+    # Very dark nighttime background (almost black with slight blue tint)
+    for y in range(height):
+        for x in range(width):
+            # Very subtle gradient
+            brightness = int(2 + (y / height) * 1)
+            frame[y, x] = [0, brightness // 2, brightness]
+
+    # Number of fireflies
+    num_fireflies = 25
+
+    for fly_id in range(num_fireflies):
+        # Base position with slow drift
+        drift_speed_x = 0.3 + (fly_id % 5) * 0.1
+        drift_speed_y = 0.2 + (fly_id % 7) * 0.08
+
+        base_x = (fly_id * 67) % width
+        base_y = (fly_id * 97) % height
+
+        # Slow circular drift pattern
+        drift_x = math.sin(offset * drift_speed_x + fly_id * 0.5) * 2.0
+        drift_y = math.cos(offset * drift_speed_y + fly_id * 0.3) * 1.5
+
+        fly_x = int((base_x + drift_x) % width)
+        fly_y = int((base_y + drift_y) % height)
+
+        # Pulsing brightness (each firefly has different pulse speed and phase)
+        pulse_speed = 0.8 + (fly_id % 6) * 0.3
+        pulse_phase = (fly_id * 1.3) % (2 * math.pi)
+
+        # Create a more natural pulse pattern (quick flash then slow fade)
+        pulse_raw = math.sin(offset * pulse_speed + pulse_phase)
+
+        # Transform sine wave to have quick rise and slow fall
+        if pulse_raw > 0:
+            pulse = pulse_raw ** 0.5  # Square root for quick rise
+        else:
+            pulse = 0  # Off when negative
+
+        brightness = pulse
+
+        # Only draw when bright enough to see
+        if brightness > 0.1:
+            # Firefly color - warm yellow-green
+            # Vary between more yellow and more green
+            if fly_id % 3 == 0:
+                # More yellow
+                hue = 0.15  # Yellow-orange
+            elif fly_id % 3 == 1:
+                # Yellow-green
+                hue = 0.18
+            else:
+                # More green
+                hue = 0.22
+
+            r, g, b = colorsys.hsv_to_rgb(hue, 0.95, brightness)
+            color = (int(r * 255), int(g * 255), int(b * 255))
+
+            # Draw firefly with glow
+            if 0 <= fly_y < height and 0 <= fly_x < width:
+                # Bright center
+                frame[fly_y, fly_x] = color
+
+                # Glow around firefly (softer)
+                glow_intensity = brightness * 0.6
+                glow_color = (int(r * 255 * glow_intensity),
+                             int(g * 255 * glow_intensity),
+                             int(b * 255 * glow_intensity))
+
+                # Add glow to adjacent pixels
+                for dy in [-1, 0, 1]:
+                    for dx in [-1, 0, 1]:
+                        if dx == 0 and dy == 0:
+                            continue  # Skip center (already drawn)
+                        glow_x = (fly_x + dx) % width
+                        glow_y = fly_y + dy
+                        if 0 <= glow_y < height:
+                            # Blend with existing pixel
+                            existing = frame[glow_y, glow_x]
+                            frame[glow_y, glow_x] = [
+                                min(255, existing[0] + glow_color[0]),
+                                min(255, existing[1] + glow_color[1]),
+                                min(255, existing[2] + glow_color[2])
+                            ]
+
+    return frame
+
+
 def rain(width: int, height: int, offset: float = 0) -> np.ndarray:
     """
     Create rain effect with falling droplets and ripples
@@ -1283,6 +1386,7 @@ PATTERNS = {
     "sunset_sunrise_loop": sunset_sunrise_loop,
     "rain": rain,
     "snow": snow,
+    "fireflies": fireflies,
 }
 
 
