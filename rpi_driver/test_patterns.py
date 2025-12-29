@@ -1661,9 +1661,10 @@ def matrix_rain(width: int, height: int, offset: float = 0) -> np.ndarray:
 
 def lava_lamp(width: int, height: int, offset: float = 0) -> np.ndarray:
     """
-    Create lava lamp effect with metaballs
+    Create lava lamp effect with physics simulation
 
-    Organic blobby shapes using metaball algorithm
+    Simulates actual lava lamp behavior: blobs heat up at bottom, rise,
+    cool at top, and sink back down.
 
     Args:
         width: Frame width (32)
@@ -1678,55 +1679,87 @@ def lava_lamp(width: int, height: int, offset: float = 0) -> np.ndarray:
     # Dark background
     frame[:, :] = [10, 0, 20]
 
-    # Metaball positions with randomized movement
-    num_blobs = 5
-    blob_positions = []
+    # Simulate blobs with physics
+    num_blobs = 6
+    blob_data = []
 
     for blob_id in range(num_blobs):
-        # Use pseudo-random motion patterns
-        seed = blob_id * 67 + int(offset * 0.5)
+        # Each blob has its own cycle period
+        blob_seed = blob_id * 137
+        cycle_period = 15.0 + ((blob_seed * 23) % 50) / 10.0  # 15-20 seconds per cycle
+        phase_offset = ((blob_seed * 41) % 100) / 10.0
 
-        # Random phase and speed
-        phase = ((seed * 41) % 360) * (2 * math.pi / 360)
-        speed_x = 0.3 + ((seed * 23) % 20) / 100.0
-        speed_y = 0.4 + ((seed * 37) % 25) / 100.0
+        # Current position in cycle (0 to 1)
+        cycle_pos = ((offset + phase_offset) / cycle_period) % 1.0
 
-        # Random radius
-        radius_x = width * (0.2 + ((seed * 19) % 20) / 100.0)
-        radius_y = height * (0.15 + ((seed * 29) % 20) / 100.0)
+        # Blob oscillates vertically like real lava lamp
+        # Bottom: Y=0-5, Top: Y=height-5 to height
+        if cycle_pos < 0.45:
+            # Rising phase (bottom to top)
+            rise_progress = cycle_pos / 0.45
+            # Ease in-out for smooth motion
+            eased = rise_progress * rise_progress * (3.0 - 2.0 * rise_progress)
+            blob_y = 3 + eased * (height - 6)
+        elif cycle_pos < 0.55:
+            # Pause at top
+            blob_y = height - 3
+        else:
+            # Sinking phase (top to bottom)
+            sink_progress = (cycle_pos - 0.55) / 0.45
+            # Ease in-out for smooth motion
+            eased = sink_progress * sink_progress * (3.0 - 2.0 * sink_progress)
+            blob_y = (height - 3) - eased * (height - 6)
 
-        # Each blob moves in its own random pattern
-        blob_x = width / 2 + radius_x * math.cos(offset * speed_x + phase)
-        blob_y = height / 2 + radius_y * math.sin(offset * speed_y + phase * 1.3)
+        # Slight horizontal drift
+        drift_offset = ((blob_seed * 19) % width)
+        blob_x = width / 2 + 3 * math.sin(offset * 0.3 + blob_id * 2.1) + (drift_offset % 10) - 5
 
-        # Random blob size
-        blob_size = 25.0 + ((seed * 13) % 20)
-        blob_positions.append((blob_x, blob_y, blob_size))
+        # Temperature based on height (hot at bottom, cool at top)
+        temp_factor = 1.0 - (blob_y / height)  # 1.0 at bottom, 0.0 at top
+
+        # Blob size varies slightly with temperature (larger when hot)
+        base_size = 28.0 + ((blob_seed * 17) % 10)
+        blob_size = base_size * (0.9 + temp_factor * 0.2)
+
+        blob_data.append((blob_x, blob_y, blob_size, temp_factor))
 
     # Calculate metaball field for each pixel
     for y in range(height):
         for x in range(width):
             # Sum of inverse distances (metaball formula)
             field = 0.0
-            for blob_x, blob_y, blob_size in blob_positions:
+            weighted_temp = 0.0
+
+            for blob_x, blob_y, blob_size, temp_factor in blob_data:
                 dx = x - blob_x
                 dy = y - blob_y
                 dist_sq = dx * dx + dy * dy
                 if dist_sq > 0.1:  # Avoid division by zero
-                    field += blob_size / dist_sq
+                    contribution = blob_size / dist_sq
+                    field += contribution
+                    weighted_temp += contribution * temp_factor
 
             # Threshold to create blob shape
             if field > 2.0:
-                # Color based on field strength
+                # Average temperature at this pixel
+                avg_temp = weighted_temp / field if field > 0 else 0.5
+
+                # Color based on temperature (hot = yellow/orange, cool = red/dark red)
                 intensity = min(1.0, (field - 2.0) / 3.0)
 
-                # Lava colors: red-orange-yellow
-                if intensity > 0.7:
-                    r, g, b = 255, 200, 0  # Yellow
-                elif intensity > 0.4:
-                    r, g, b = 255, 100, 0  # Orange
+                # Temperature affects color
+                if avg_temp > 0.7:
+                    # Hot - bright yellow/orange
+                    r, g, b = 255, int(180 + avg_temp * 75), 0
+                elif avg_temp > 0.4:
+                    # Warm - orange
+                    r, g, b = 255, int(80 + avg_temp * 120), 0
+                elif avg_temp > 0.2:
+                    # Cool - red
+                    r, g, b = int(200 + avg_temp * 55), int(avg_temp * 50), 0
                 else:
-                    r, g, b = 200, 0, 0  # Red
+                    # Cold - dark red
+                    r, g, b = int(150 + avg_temp * 100), 0, 0
 
                 frame[y, x] = [
                     int(r * intensity),
