@@ -19,18 +19,18 @@ class SimpleLavaLamp:
         self.height = height
         self.start_time = time.time()
 
-        # 10 blobs with different animation parameters (reduced radius for 32x32 resolution)
+        # 10 blobs with different animation parameters (balanced for 32x32)
         self.blobs = [
-            {'x_speed': 0.01, 'x_range': 0.3, 'y_speed': 0.25, 'y_range': 0.4, 'radius': 0.008},
-            {'x_speed': 0.02, 'x_range': 0.1, 'y_speed': 0.2, 'y_range': 0.5, 'radius': 0.007},
-            {'x_speed': 0.025, 'x_range': 0.3, 'y_speed': 0.1, 'y_range': 0.5, 'radius': 0.009},
-            {'x_speed': 0.02, 'x_range': 0.2, 'y_speed': 0.18, 'y_range': 0.5, 'radius': 0.009},
-            {'x_speed': 0.03, 'x_range': 0.3, 'y_speed': 0.25, 'y_range': 0.4, 'radius': 0.008},
-            {'x_speed': 0.03, 'x_range': 0.1, 'y_speed': 0.15, 'y_range': 0.5, 'radius': 0.009},
-            {'x_speed': 0.01, 'x_range': 0.3, 'y_speed': 0.1, 'y_range': 0.5, 'radius': 0.010},
-            {'x_speed': 0.02, 'x_range': 0.2, 'y_speed': 0.12, 'y_range': 0.5, 'radius': 0.007},
-            {'x_speed': 0.024, 'x_range': 0.3, 'y_speed': 0.22, 'y_range': 0.5, 'radius': 0.008},
-            {'x_speed': 0.03, 'x_range': 0.1, 'y_speed': 0.3, 'y_range': 0.5, 'radius': 0.008},
+            {'x_speed': 0.003, 'x_range': 0.3, 'y_speed': 0.08, 'y_range': 0.4, 'radius': 0.015},
+            {'x_speed': 0.006, 'x_range': 0.1, 'y_speed': 0.07, 'y_range': 0.5, 'radius': 0.014},
+            {'x_speed': 0.008, 'x_range': 0.3, 'y_speed': 0.03, 'y_range': 0.5, 'radius': 0.016},
+            {'x_speed': 0.006, 'x_range': 0.2, 'y_speed': 0.06, 'y_range': 0.5, 'radius': 0.016},
+            {'x_speed': 0.009, 'x_range': 0.3, 'y_speed': 0.08, 'y_range': 0.4, 'radius': 0.015},
+            {'x_speed': 0.009, 'x_range': 0.1, 'y_speed': 0.05, 'y_range': 0.5, 'radius': 0.016},
+            {'x_speed': 0.003, 'x_range': 0.3, 'y_speed': 0.03, 'y_range': 0.5, 'radius': 0.017},
+            {'x_speed': 0.006, 'x_range': 0.2, 'y_speed': 0.04, 'y_range': 0.5, 'radius': 0.014},
+            {'x_speed': 0.007, 'x_range': 0.3, 'y_speed': 0.07, 'y_range': 0.5, 'radius': 0.015},
+            {'x_speed': 0.009, 'x_range': 0.1, 'y_speed': 0.10, 'y_range': 0.5, 'radius': 0.015},
         ]
 
     def scale_by_temp(self, y_norm: float) -> float:
@@ -81,8 +81,8 @@ class SimpleLavaLamp:
         # Background color - dark purple
         frame[:, :] = [10, 0, 20]
 
-        # Apply threshold and color (increased threshold for smaller blobs)
-        mask = field > 1.5
+        # Apply threshold and color (balanced threshold)
+        mask = field > 1.0
         if np.any(mask):
             # Normalize field for color intensity
             intensity = np.clip(field / 2.0, 0, 1)
