@@ -14,6 +14,7 @@ from typing import Optional
 from .led_driver import LEDDriver
 from .coordinate_mapper import CoordinateMapper
 from .config_manager import ConfigManager
+from .power_limiter import PowerLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,9 @@ class DisplayController:
                  frame_queue: queue.Queue,
                  config_reload_event: threading.Event,
                  config_path: str,
-                 target_fps: int = 30):
+                 target_fps: int = 30,
+                 power_limit_amps: float = 8.5,
+                 power_limit_enabled: bool = True):
         """
         Initialize display controller
 
@@ -63,6 +66,14 @@ class DisplayController:
         # Frame timing
         self.frame_interval = 1.0 / target_fps if target_fps > 0 else 0
         self.last_frame_time = 0
+
+        # Power limiter
+        led_count = led_driver.get_led_count()
+        self.power_limiter = PowerLimiter(
+            led_count=led_count,
+            max_current_amps=power_limit_amps,
+            enabled=power_limit_enabled
+        )
 
         logger.info(f"Display controller initialized: target {target_fps} FPS")
 
@@ -160,6 +171,17 @@ class DisplayController:
             # Map virtual frame to physical LED order
             physical_frame = self.mapper.map_frame(virtual_frame)
 
+            # Apply power limiting if enabled
+            current_brightness = self.led_driver.get_brightness()
+            safe_brightness, was_limited = self.power_limiter.limit_brightness_for_frame(
+                physical_frame,
+                current_brightness
+            )
+
+            # Apply limited brightness if needed
+            if was_limited:
+                self.led_driver.set_brightness(safe_brightness)
+
             # Send to LED driver
             self.led_driver.set_frame(physical_frame)
             self.led_driver.show()
@@ -226,3 +248,7 @@ class DisplayController:
             logger.info(f"Target FPS set to {fps}")
         else:
             logger.warning(f"Invalid FPS: {fps}")
+
+    def get_power_limiter(self) -> PowerLimiter:
+        """Get power limiter instance"""
+        return self.power_limiter

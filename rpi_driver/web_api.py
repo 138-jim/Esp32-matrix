@@ -58,6 +58,11 @@ class SleepScheduleRequest(BaseModel):
     enabled: bool
 
 
+class PowerLimitRequest(BaseModel):
+    max_current_amps: float
+    enabled: bool
+
+
 class StatusResponse(BaseModel):
     fps: float
     queue_size: int
@@ -531,12 +536,54 @@ class WebAPIServer:
                     current_frame = self.led_driver.current_frame
 
                 stats = self.system_monitor.get_all_stats(frame=current_frame)
+
+                # Add power limiter stats
+                power_limiter = self.display_controller.get_power_limiter()
+                stats['power_limiter'] = power_limiter.get_stats()
+
                 return stats
 
             except HTTPException:
                 raise
             except Exception as e:
                 logger.error(f"Error getting system stats: {e}", exc_info=True)
+                raise HTTPException(status_code=500, detail=str(e))
+
+        # Power limit endpoints
+        @self.app.post("/api/power-limit")
+        async def set_power_limit(request: PowerLimitRequest):
+            """Set power limit configuration"""
+            try:
+                power_limiter = self.display_controller.get_power_limiter()
+
+                # Validate current limit
+                if request.max_current_amps <= 0 or request.max_current_amps > 100:
+                    raise HTTPException(status_code=400,
+                                      detail="Current limit must be between 0 and 100 Amps")
+
+                power_limiter.set_max_current(request.max_current_amps)
+                power_limiter.set_enabled(request.enabled)
+
+                return {
+                    "status": "success",
+                    "power_limit": power_limiter.get_stats()
+                }
+
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Error setting power limit: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
+
+        @self.app.get("/api/power-limit")
+        async def get_power_limit():
+            """Get current power limit configuration"""
+            try:
+                power_limiter = self.display_controller.get_power_limiter()
+                return power_limiter.get_stats()
+
+            except Exception as e:
+                logger.error(f"Error getting power limit: {e}")
                 raise HTTPException(status_code=500, detail=str(e))
 
         # WebSocket for frame streaming

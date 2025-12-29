@@ -56,9 +56,69 @@ async function refreshHardwareStats() {
         document.getElementById('ledCurrentInfo').textContent =
             `${stats.led_count} LEDs @ ${stats.led_current_a.toFixed(2)}A | Max: ${stats.led_max_power_w}W`;
 
+        // Update power limiter info
+        if (stats.power_limiter) {
+            const limiter = stats.power_limiter;
+            let limitText = `Limit: ${limiter.max_current_amps}A`;
+            if (limiter.enabled) {
+                if (limiter.last_limited_brightness !== null) {
+                    limitText += ` | ⚠️ ACTIVE (Limited: ${limiter.limit_applied_count}×)`;
+                } else {
+                    limitText += ' | ✓ Enabled';
+                }
+            } else {
+                limitText += ' | Disabled';
+            }
+            document.getElementById('powerLimitInfo').textContent = limitText;
+            document.getElementById('powerLimitInfo').style.color =
+                (limiter.enabled && limiter.last_limited_brightness !== null) ? '#ff8888' : '#94a3b8';
+        }
+
     } catch (error) {
         console.error('Error refreshing hardware stats:', error);
         // Don't show error message to avoid spam
+    }
+}
+
+// Load power limit settings
+async function loadPowerLimit() {
+    try {
+        const response = await fetch(`${API_BASE}/api/power-limit`);
+        if (response.ok) {
+            const limit = await response.json();
+            document.getElementById('powerLimitAmps').value = limit.max_current_amps;
+            document.getElementById('powerLimitEnabled').checked = limit.enabled;
+        }
+    } catch (error) {
+        console.error('Error loading power limit:', error);
+    }
+}
+
+// Save power limit settings
+async function savePowerLimit() {
+    try {
+        const maxCurrentAmps = parseFloat(document.getElementById('powerLimitAmps').value);
+        const enabled = document.getElementById('powerLimitEnabled').checked;
+
+        const response = await fetch(`${API_BASE}/api/power-limit`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                max_current_amps: maxCurrentAmps,
+                enabled: enabled
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || `HTTP ${response.status}`);
+        }
+
+        showStatus(`Power limit ${enabled ? 'enabled' : 'disabled'} at ${maxCurrentAmps}A`, 'success');
+
+    } catch (error) {
+        console.error('Error saving power limit:', error);
+        showStatus(`Error saving power limit: ${error.message}`, 'error');
     }
 }
 
@@ -68,6 +128,7 @@ window.addEventListener('DOMContentLoaded', () => {
     refreshConfig();
     refreshStatus();
     loadSleepSchedule();
+    loadPowerLimit();
     updateClock();  // Initial clock update
     refreshHardwareStats();  // Initial hardware stats update
 
