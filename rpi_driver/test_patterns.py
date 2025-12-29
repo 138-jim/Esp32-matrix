@@ -823,6 +823,90 @@ def aquarium(width: int, height: int, offset: float = 0) -> np.ndarray:
     return frame
 
 
+def ocean_waves(width: int, height: int, offset: float = 0) -> np.ndarray:
+    """
+    Create ocean waves effect using multi-layered noise
+
+    Rolling waves with organic movement using multiple sine wave layers
+    for non-repeating patterns
+
+    Args:
+        width: Frame width (32)
+        height: Frame height (32)
+        offset: Animation time offset
+
+    Returns:
+        Frame array with ocean waves effect
+    """
+    frame = np.zeros((height, width, 3), dtype=np.uint8)
+
+    # Create wave height field using multiple sine wave layers (simplified Perlin noise)
+    wave_field = np.zeros((height, width), dtype=float)
+
+    # Layer 1: Large slow waves
+    for x in range(width):
+        for y in range(height):
+            wave1 = math.sin(x * 0.3 + offset * 0.8) * 3.0
+            wave_field[y, x] += wave1
+
+    # Layer 2: Medium waves at different angle
+    for x in range(width):
+        for y in range(height):
+            wave2 = math.sin(x * 0.5 + y * 0.2 + offset * 1.2) * 2.0
+            wave_field[y, x] += wave2
+
+    # Layer 3: Small fast ripples
+    for x in range(width):
+        for y in range(height):
+            wave3 = math.sin(x * 0.8 - y * 0.3 + offset * 2.0) * 1.0
+            wave_field[y, x] += wave3
+
+    # Layer 4: Very slow large swell
+    for x in range(width):
+        for y in range(height):
+            wave4 = math.sin(x * 0.15 + offset * 0.4) * 2.5
+            wave_field[y, x] += wave4
+
+    # Normalize wave field to 0-1 range
+    wave_min = np.min(wave_field)
+    wave_max = np.max(wave_field)
+    if wave_max - wave_min > 0:
+        wave_field = (wave_field - wave_min) / (wave_max - wave_min)
+
+    # Color the waves based on height and depth
+    for y in range(height):
+        for x in range(width):
+            wave_height = wave_field[y, x]
+
+            # Depth gradient (Y=0 is bottom, Y=height-1 is top)
+            depth = (height - 1 - y) / height  # 0 at bottom, 1 at top
+
+            # Base ocean colors (blues and cyans)
+            # Deeper water = darker, shallower = lighter
+            base_blue = int(40 + depth * 80 + wave_height * 40)  # 40-160
+            base_green = int(20 + depth * 60 + wave_height * 60)  # 20-140
+
+            # Wave crests (high wave_height) get lighter/white
+            if wave_height > 0.75:
+                # White foam on crests
+                foam_intensity = (wave_height - 0.75) / 0.25
+                r = int(foam_intensity * 200)
+                g = int(base_green + foam_intensity * (255 - base_green))
+                b = int(base_blue + foam_intensity * (255 - base_blue))
+                frame[y, x] = [r, g, b]
+            elif wave_height > 0.6:
+                # Light cyan on upper waves
+                r = 0
+                g = int(base_green + (wave_height - 0.6) * 100)
+                b = int(base_blue + (wave_height - 0.6) * 80)
+                frame[y, x] = [r, g, b]
+            else:
+                # Deep ocean blue
+                frame[y, x] = [0, base_green, base_blue]
+
+    return frame
+
+
 def rain(width: int, height: int, offset: float = 0) -> np.ndarray:
     """
     Create rain effect with falling droplets and ripples
@@ -1496,6 +1580,7 @@ PATTERNS = {
     "snow": snow,
     "fireflies": fireflies,
     "aquarium": aquarium,
+    "ocean_waves": ocean_waves,
 }
 
 
