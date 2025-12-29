@@ -722,14 +722,15 @@ def aquarium(width: int, height: int, offset: float = 0) -> np.ndarray:
     frame = np.zeros((height, width, 3), dtype=np.uint8)
 
     # Blue water background (gradient from light blue at top to deeper blue at bottom)
+    # Y=0 is bottom, Y=height-1 is top
     for y in range(height):
-        depth_factor = y / height
-        # Light blue at top, darker blue at bottom
+        depth_factor = (height - 1 - y) / height  # Inverted: top=1.0, bottom=0.0
+        # Light blue at top (high depth_factor), darker blue at bottom (low depth_factor)
         blue_intensity = int(100 + depth_factor * 80)  # 100-180
         green_intensity = int(60 + depth_factor * 40)   # 60-100
         frame[y, :] = [0, green_intensity, blue_intensity]
 
-    # Draw seaweed/plants at bottom
+    # Draw seaweed/plants at bottom (Y=0)
     num_plants = 5
     for plant_id in range(num_plants):
         plant_x = (plant_id * 7 + 3) % width
@@ -739,7 +740,7 @@ def aquarium(width: int, height: int, offset: float = 0) -> np.ndarray:
         sway = int(math.sin(offset * 1.5 + plant_id) * 1.5)
 
         for seg in range(plant_height):
-            seg_y = height - 1 - seg
+            seg_y = seg  # Start at Y=0 (bottom) and grow upward
             seg_x = (plant_x + (sway if seg > 1 else 0)) % width
             if 0 <= seg_y < height:
                 # Dark green plant
@@ -802,11 +803,11 @@ def aquarium(width: int, height: int, offset: float = 0) -> np.ndarray:
     # Rising bubbles
     num_bubbles = 15
     for bubble_id in range(num_bubbles):
-        # Bubbles rise from bottom
+        # Bubbles rise from bottom (Y=0) to top (Y=height-1)
         rise_speed = 2.0 + (bubble_id % 3) * 0.5
 
         bubble_y_raw = (offset * rise_speed + bubble_id * 7) % (height + 10)
-        bubble_y = height - int(bubble_y_raw)
+        bubble_y = int(bubble_y_raw)  # Rise from 0 upward
 
         bubble_x = (bubble_id * 11 + 2) % width
 
