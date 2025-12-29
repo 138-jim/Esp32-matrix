@@ -525,6 +525,150 @@ def beating_heart(width: int, height: int, offset: float = 0) -> np.ndarray:
     return frame
 
 
+def sunset_sunrise_loop(width: int, height: int, offset: float = 0) -> np.ndarray:
+    """
+    Create sunset/sunrise animation loop (not synced to real time)
+
+    Continuously cycles through day and night with animated sun/moon,
+    clouds, and stars. Full cycle every 40 seconds.
+
+    Args:
+        width: Frame width (32)
+        height: Frame height (32)
+        offset: Animation time offset
+
+    Returns:
+        Frame array with sunset/sunrise effect
+    """
+    frame = np.zeros((height, width, 3), dtype=np.uint8)
+
+    # Cycle through a full day every 40 seconds
+    day_cycle = (offset / 40.0) % 1.0
+
+    # Sun/Moon position (moves across sky from left to right)
+    if 0.208 <= day_cycle < 0.875:  # Sun is up
+        sun_progress = (day_cycle - 0.208) / (0.875 - 0.208)
+        sun_x = int(sun_progress * width)
+        sun_y = int(height * 0.8 - (4 * sun_progress * (1 - sun_progress)) * height * 0.5)
+        celestial_body = "sun"
+    else:  # Moon is up
+        if day_cycle >= 0.875:
+            moon_progress = (day_cycle - 0.875) / (1.0 - 0.875)
+        else:
+            moon_progress = (day_cycle + (1.0 - 0.875)) / (0.208 + (1.0 - 0.875))
+        moon_x = int(moon_progress * width)
+        moon_y = int(height * 0.8 - (4 * moon_progress * (1 - moon_progress)) * height * 0.5)
+        celestial_body = "moon"
+
+    # Draw sky gradient
+    for y in range(height):
+        v_pos = 1.0 - (y / height)
+
+        for x in range(width):
+            # Determine colors based on time of day
+            if 0.208 <= day_cycle < 0.333:  # Sunrise
+                phase = (day_cycle - 0.208) / (0.333 - 0.208)
+                if v_pos < 0.3:
+                    hue = 0.05 + phase * 0.05
+                    saturation = 1.0
+                    brightness = 0.6 + phase * 0.4
+                elif v_pos < 0.6:
+                    hue = 0.08 + phase * 0.07
+                    saturation = 0.9 - phase * 0.3
+                    brightness = 0.8 + phase * 0.2
+                else:
+                    hue = 0.15 + phase * 0.4
+                    saturation = 0.5 - phase * 0.3
+                    brightness = 0.7 + phase * 0.3
+
+            elif 0.333 <= day_cycle < 0.75:  # Day
+                if v_pos < 0.2:
+                    hue = 0.52
+                    saturation = 0.3
+                    brightness = 0.95
+                else:
+                    hue = 0.55
+                    saturation = 0.7
+                    brightness = 0.95
+
+            elif 0.75 <= day_cycle < 0.875:  # Sunset
+                phase = (day_cycle - 0.75) / (0.875 - 0.75)
+                if v_pos < 0.3:
+                    hue = 0.05 - phase * 0.03
+                    saturation = 0.95
+                    brightness = 0.8 - phase * 0.3
+                elif v_pos < 0.6:
+                    hue = 0.95 - phase * 0.1
+                    saturation = 0.8
+                    brightness = 0.7 - phase * 0.2
+                else:
+                    hue = 0.7 - phase * 0.1
+                    saturation = 0.7
+                    brightness = 0.6 - phase * 0.3
+
+            else:  # Night
+                if v_pos < 0.4:
+                    hue = 0.62
+                    saturation = 0.8
+                    brightness = 0.15
+                else:
+                    hue = 0.65
+                    saturation = 0.75
+                    brightness = 0.25
+
+            r, g, b = colorsys.hsv_to_rgb(hue, saturation, brightness)
+            frame[y, x] = [int(r * 255), int(g * 255), int(b * 255)]
+
+    # Draw stars at night
+    if day_cycle >= 0.875 or day_cycle < 0.208:
+        for star_id in range(40):
+            sx = (star_id * 73) % width
+            sy = (star_id * 97) % (height - 10)
+            if sy < height * 0.7:
+                twinkle = 0.5 + 0.5 * math.sin(offset * (0.5 + star_id % 3) + star_id)
+                brightness = int(200 * twinkle)
+                frame[sy, sx] = [brightness, brightness, brightness]
+
+    # Draw clouds during day
+    if 0.25 <= day_cycle < 0.875:
+        cloud_offset = int(offset * 2) % width
+        for cloud_id in range(3):
+            cx = (cloud_offset + cloud_id * 15) % width
+            cy = 5 + cloud_id * 6
+            for dy in range(-1, 2):
+                for dx in range(-2, 3):
+                    cloud_y = cy + dy
+                    cloud_x = (cx + dx) % width
+                    if 0 <= cloud_y < height:
+                        frame[cloud_y, cloud_x] = [
+                            min(255, frame[cloud_y, cloud_x][0] + 80),
+                            min(255, frame[cloud_y, cloud_x][1] + 80),
+                            min(255, frame[cloud_y, cloud_x][2] + 80)
+                        ]
+
+    # Draw sun or moon
+    if celestial_body == "sun":
+        sun_radius = 3
+        for dy in range(-sun_radius, sun_radius + 1):
+            for dx in range(-sun_radius, sun_radius + 1):
+                if dx*dx + dy*dy <= sun_radius*sun_radius:
+                    sy = sun_y + dy
+                    sx = sun_x + dx
+                    if 0 <= sy < height and 0 <= sx < width:
+                        frame[sy, sx] = [255, 220, 100]
+    else:
+        moon_radius = 2
+        for dy in range(-moon_radius, moon_radius + 1):
+            for dx in range(-moon_radius, moon_radius + 1):
+                if dx*dx + dy*dy <= moon_radius*moon_radius:
+                    my = moon_y + dy
+                    mx = moon_x + dx
+                    if 0 <= my < height and 0 <= mx < width:
+                        frame[my, mx] = [240, 240, 200]
+
+    return frame
+
+
 def sunset_sunrise(width: int, height: int, offset: float = 0) -> np.ndarray:
     """
     Create sunset/sunrise animation with sun/moon and real-time sync
@@ -958,6 +1102,7 @@ PATTERNS = {
     "gradient_waves": gradient_waves,
     "rgb_torch": rgb_torch,
     "sunset_sunrise": sunset_sunrise,
+    "sunset_sunrise_loop": sunset_sunrise_loop,
 }
 
 
