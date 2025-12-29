@@ -525,6 +525,113 @@ def beating_heart(width: int, height: int, offset: float = 0) -> np.ndarray:
     return frame
 
 
+def sunset_sunrise(width: int, height: int, offset: float = 0) -> np.ndarray:
+    """
+    Create sunset/sunrise time-lapse color shift animation
+
+    Cycles through different times of day with appropriate color schemes:
+    sunrise, day, sunset, night
+
+    Args:
+        width: Frame width (32)
+        height: Frame height (32)
+        offset: Animation time offset
+
+    Returns:
+        Frame array with sunset/sunrise effect
+    """
+    frame = np.zeros((height, width, 3), dtype=np.uint8)
+
+    # Cycle through a full day every 20 seconds
+    day_cycle = (offset / 20.0) % 1.0
+
+    for y in range(height):
+        # Vertical position (0 at bottom, 1 at top)
+        v_pos = 1.0 - (y / height)
+
+        for x in range(width):
+            if day_cycle < 0.25:
+                # Sunrise (0.0 - 0.25): warm orange/red at bottom, yellow/blue at top
+                phase = day_cycle / 0.25  # 0 to 1
+
+                if v_pos < 0.3:
+                    # Bottom: deep orange to bright orange
+                    hue = 0.05 + phase * 0.05  # Orange range
+                    saturation = 1.0
+                    brightness = 0.6 + phase * 0.4
+                elif v_pos < 0.6:
+                    # Middle: orange to yellow
+                    hue = 0.08 + phase * 0.07  # Orange to yellow
+                    saturation = 0.9 - phase * 0.3
+                    brightness = 0.8 + phase * 0.2
+                else:
+                    # Top: light yellow to light blue
+                    hue = 0.15 + phase * 0.4  # Yellow to cyan
+                    saturation = 0.5 - phase * 0.3
+                    brightness = 0.7 + phase * 0.3
+
+            elif day_cycle < 0.5:
+                # Day (0.25 - 0.5): bright blue sky
+                phase = (day_cycle - 0.25) / 0.25
+
+                if v_pos < 0.2:
+                    # Horizon: light cyan
+                    hue = 0.52
+                    saturation = 0.3 + phase * 0.1
+                    brightness = 0.9 + phase * 0.1
+                else:
+                    # Sky: bright blue
+                    hue = 0.55 + phase * 0.05
+                    saturation = 0.6 + phase * 0.2
+                    brightness = 0.9 + phase * 0.1
+
+            elif day_cycle < 0.75:
+                # Sunset (0.5 - 0.75): warm colors return
+                phase = (day_cycle - 0.5) / 0.25
+
+                if v_pos < 0.3:
+                    # Bottom: orange to deep red
+                    hue = 0.05 - phase * 0.03  # Orange to red
+                    saturation = 0.9 + phase * 0.1
+                    brightness = 0.8 - phase * 0.3
+                elif v_pos < 0.6:
+                    # Middle: pink to purple
+                    hue = 0.95 - phase * 0.1
+                    saturation = 0.7 + phase * 0.2
+                    brightness = 0.7 - phase * 0.2
+                else:
+                    # Top: purple to dark blue
+                    hue = 0.7 - phase * 0.1
+                    saturation = 0.6 + phase * 0.2
+                    brightness = 0.6 - phase * 0.3
+
+            else:
+                # Night (0.75 - 1.0): deep blue/purple
+                phase = (day_cycle - 0.75) / 0.25
+
+                if v_pos < 0.4:
+                    # Bottom: very dark blue
+                    hue = 0.6 + phase * 0.05
+                    saturation = 0.8
+                    brightness = 0.1 + phase * 0.1
+                else:
+                    # Top: dark blue to deep purple
+                    hue = 0.65 - phase * 0.05
+                    saturation = 0.7 + phase * 0.1
+                    brightness = 0.2 + phase * 0.1
+
+            # Convert HSV to RGB
+            r, g, b = colorsys.hsv_to_rgb(hue, saturation, brightness)
+
+            frame[y, x] = [
+                int(r * 255),
+                int(g * 255),
+                int(b * 255)
+            ]
+
+    return frame
+
+
 def rgb_torch(width: int, height: int, offset: float = 0) -> np.ndarray:
     """
     Create flickering colored flame effect (rainbow torch)
@@ -793,6 +900,7 @@ PATTERNS = {
     "color_gradients": color_gradients,
     "gradient_waves": gradient_waves,
     "rgb_torch": rgb_torch,
+    "sunset_sunrise": sunset_sunrise,
 }
 
 

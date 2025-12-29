@@ -12,8 +12,8 @@
 1. ✅ Starry Night - Twinkling stars (APPROVED)
 2. ✅ Color Gradients - Linear/radial/diagonal color transitions (APPROVED)
 3. ✅ Gradient Waves - Sine wave color interference (APPROVED)
-4. 🟢 RGB Torch - Flickering flame colors (TESTING - waiting for user)
-5. 🔴 Sunset/Sunrise - Color shift animation
+4. ✅ RGB Torch - Flickering flame colors (APPROVED)
+5. 🟢 Sunset/Sunrise - Color shift animation (TESTING - waiting for user)
 
 ### Phase 2: Natural Effects
 6. 🔴 Rain - Falling droplets
