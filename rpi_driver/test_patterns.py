@@ -2170,21 +2170,27 @@ def fireworks(width: int, height: int, offset: float = 0) -> np.ndarray:
     # Multiple fireworks with randomized properties
     num_fireworks = 4
     for fw_id in range(num_fireworks):
-        # Use only fw_id for consistent pseudo-random properties
-        seed = fw_id * 79
-        cycle_offset = ((seed * 31) % 50) / 10.0
+        # Base seed from firework ID
+        base_seed = fw_id * 79
+        cycle_offset = ((base_seed * 31) % 50) / 10.0
 
         # Random cycle duration (3 to 6 seconds) - consistent per firework
-        cycle_duration = 3.0 + ((seed * 23) % 30) / 10.0
+        cycle_duration = 3.0 + ((base_seed * 23) % 30) / 10.0
         cycle_time = (offset + cycle_offset) % cycle_duration
 
-        # Random launch x position - consistent per firework
+        # Calculate which cycle we're in (changes over time for variety)
+        cycle_number = int((offset + cycle_offset) / cycle_duration)
+
+        # Seed that changes each cycle for varied effects
+        seed = base_seed + cycle_number * 997
+
+        # Random launch x position - varies each cycle
         launch_x = 5 + ((seed * 47) % (width - 10))
 
-        # Random explosion height (50% to 75% of height) - consistent per firework
+        # Random explosion height (50% to 75% of height) - varies each cycle
         explosion_height = 0.5 + ((seed * 37) % 25) / 100.0
 
-        # Select effect types for this firework
+        # Select effect types for this firework (changes each cycle)
         burst_type = _select_burst_type(seed)
         color_effect = _select_color_effect(seed)
         special_effect = _select_special_effect(seed)
