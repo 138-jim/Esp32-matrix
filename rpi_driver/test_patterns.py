@@ -1949,9 +1949,13 @@ def _get_particle_color(base_hue: float, particle_id: int, num_particles: int,
         saturation = 1.0
         brightness = 1.0
 
-    # Convert to RGB
+    # Convert to RGB and clamp to 0-255 range
     r, g, b = colorsys.hsv_to_rgb(hue, saturation, brightness)
-    return (int(r * 255), int(g * 255), int(b * 255))
+    return (
+        max(0, min(255, int(r * 255))),
+        max(0, min(255, int(g * 255))),
+        max(0, min(255, int(b * 255)))
+    )
 
 
 def _apply_burst_physics(center_x: float, center_y: float, angle: float,
