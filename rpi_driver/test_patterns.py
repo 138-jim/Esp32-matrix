@@ -1988,9 +1988,9 @@ def _apply_burst_physics(center_x: float, center_y: float, angle: float,
         # Drooping trails with stronger gravity and slower horizontal movement
         px = center_x + speed * explosion_time * math.cos(angle) * 0.6  # Slower horizontal
         py = center_y + speed * explosion_time * math.sin(angle) * 0.7  # Slower vertical
-        # Stronger gravity (3x) and downward velocity bias
-        py -= explosion_time * explosion_time * 6
-        py -= explosion_time * 2  # Reduced from 3 to 2 for slower droop
+        # Moderate gravity (2x) and gentle downward velocity for graceful droop
+        py -= explosion_time * explosion_time * 4  # Reduced from 6 to 4
+        py -= explosion_time * 1  # Reduced from 2 to 1 for even slower fall
 
     elif burst_type == 'palm':
         # Thick arcing trails, more vertical
@@ -2105,13 +2105,14 @@ def _render_particle_with_effects(frame: np.ndarray, px: float, py: float,
             frame[py_int, px_int] = faded_color
 
         # Secondary bursts - VERY VISIBLE with bright white/yellow flashes
-        if 0.8 < explosion_time < 2.5:  # Active window: 0.8-2.5s
+        # Burst late in the explosion when particles are slowing down and about to fade
+        if 1.8 < explosion_time < 2.8:  # Active window: 1.8-2.8s (near end of 3s fade)
             # Spawn 6-8 secondary particles (more than before)
             num_secondary = 6 + ((seed + particle_id) % 3)
-            burst_start_time = 0.8
+            burst_start_time = 1.8
             burst_progress = explosion_time - burst_start_time
 
-            # Flash effect at burst moment (0.8-1.0s)
+            # Flash effect at burst moment (1.8-2.0s)
             if burst_progress < 0.2:
                 # Bright white flash at particle location
                 flash_intensity = 1.0 - (burst_progress / 0.2)
