@@ -10,7 +10,7 @@ import colorsys
 from datetime import datetime, timedelta
 from typing import Tuple
 from PIL import Image, ImageDraw, ImageFont
-
+import random
 
 # Perlin Noise Implementation
 class PerlinNoise:
@@ -2121,12 +2121,12 @@ def _render_particle_with_effects(frame: np.ndarray, px: float, py: float,
                         flash_x = px_int + (fdx * 0.5)
                         flash_y = py_int + (fdy * 0.5)
                         if 0 <= flash_x < width and 0 <= flash_y < height:
-                            flash_color = int(255 * flash_intensity)
+                            flash_color = int(122 * flash_intensity)
                             current = frame[flash_y, flash_x]
                             frame[flash_y, flash_x] = [
-                                current[0],
-                                current[1],
-                                current[2]
+                                random(255, current[0]),
+                                random(255, current[1]),
+                                random(255, current[2])
                             ]
 
             for sec_id in range(num_secondary):
