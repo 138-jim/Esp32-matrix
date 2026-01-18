@@ -2107,7 +2107,7 @@ def _render_particle_with_effects(frame: np.ndarray, px: float, py: float,
         # Secondary bursts - VERY VISIBLE with bright white/yellow flashes
         if 0.8 < explosion_time < 2.5:  # Active window: 0.8-2.5s
             # Spawn 6-8 secondary particles (more than before)
-            num_secondary = 6 + ((seed + particle_id) % 3)
+            num_secondary = 3 + ((seed + particle_id) % 3)
             burst_start_time = 0.8
             burst_progress = explosion_time - burst_start_time
 
@@ -2115,7 +2115,7 @@ def _render_particle_with_effects(frame: np.ndarray, px: float, py: float,
             if burst_progress < 0.2:
                 # Bright white flash at particle location
                 flash_intensity = 1.0 - (burst_progress / 0.2)
-                flash_size = 2
+                flash_size = 1
                 for fdx in range(-flash_size, flash_size + 1):
                     for fdy in range(-flash_size, flash_size + 1):
                         flash_x = px_int + fdx
@@ -2124,14 +2124,14 @@ def _render_particle_with_effects(frame: np.ndarray, px: float, py: float,
                             flash_color = int(255 * flash_intensity)
                             current = frame[flash_y, flash_x]
                             frame[flash_y, flash_x] = [
-                                min(255, current[0] + flash_color),
-                                min(255, current[1] + flash_color),
-                                min(255, current[2] + flash_color)
+                                min(255, current[0]),
+                                min(255, current[1]),
+                                min(255, current[2])
                             ]
 
             for sec_id in range(num_secondary):
                 sec_angle = (sec_id / num_secondary) * 2 * math.pi
-                sec_distance = burst_progress * speed * 2.5  # Even faster secondary particles
+                sec_distance = burst_progress * speed * 2  # Even faster secondary particles
                 sec_px = px + sec_distance * math.cos(sec_angle)
                 sec_py = py + sec_distance * math.sin(sec_angle)
                 sec_px_int = int(sec_px)
@@ -2320,16 +2320,16 @@ def fireworks(width: int, height: int, offset: float = 0) -> np.ndarray:
                         # Draw thicker particles
                         for dx in [-1, 0, 1]:
                             for dy in [-1, 0, 1]:
-                                thick_px = int(px) + dx
-                                thick_py = int(py) + dy
+                                thick_px = int(px)
+                                thick_py = int(py)
                                 if 0 <= thick_px < width and 0 <= thick_py < height:
                                     if dx == 0 and dy == 0:
                                         continue  # Already drawn by main render
                                     # Dimmer for outer pixels
                                     dim_color = [
-                                        int(faded_color[0] * 0.6),
-                                        int(faded_color[1] * 0.6),
-                                        int(faded_color[2] * 0.6)
+                                        int(faded_color[0] * 0.5),
+                                        int(faded_color[1] * 0.5),
+                                        int(faded_color[2] * 0.5)
                                     ]
                                     current = frame[thick_py, thick_px]
                                     frame[thick_py, thick_px] = [
