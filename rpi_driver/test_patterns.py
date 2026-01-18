@@ -1985,12 +1985,12 @@ def _apply_burst_physics(center_x: float, center_y: float, angle: float,
         py -= explosion_time * explosion_time * 2
 
     elif burst_type == 'willow':
-        # Drooping trails with stronger gravity
-        px = center_x + speed * explosion_time * math.cos(angle)
-        py = center_y + speed * explosion_time * math.sin(angle)
+        # Drooping trails with stronger gravity and slower horizontal movement
+        px = center_x + speed * explosion_time * math.cos(angle) * 0.6  # Slower horizontal
+        py = center_y + speed * explosion_time * math.sin(angle) * 0.7  # Slower vertical
         # Stronger gravity (3x) and downward velocity bias
         py -= explosion_time * explosion_time * 6
-        py -= explosion_time * 3
+        py -= explosion_time * 2  # Reduced from 3 to 2 for slower droop
 
     elif burst_type == 'palm':
         # Thick arcing trails, more vertical
@@ -2060,8 +2060,9 @@ def _render_particle_with_effects(frame: np.ndarray, px: float, py: float,
             frame[py_int, px_int] = faded_color
 
     elif special_effect == 'strobe':
-        # Pulsing particles
-        strobe_intensity = abs(math.sin(offset * 20 + particle_id * 0.5))
+        # Pulsing particles - slower pulse with minimum brightness
+        strobe_wave = abs(math.sin(offset * 6 + particle_id * 0.5))  # Slower: 6Hz instead of 20Hz
+        strobe_intensity = 0.3 + (strobe_wave * 0.7)  # Range: 0.3 to 1.0 (never fully dark)
         strobed_color = [
             int(faded_color[0] * strobe_intensity),
             int(faded_color[1] * strobe_intensity),
@@ -2103,26 +2104,48 @@ def _render_particle_with_effects(frame: np.ndarray, px: float, py: float,
         if 0 <= px_int < width and 0 <= py_int < height:
             frame[py_int, px_int] = faded_color
 
-        # Secondary bursts at t≈1.5s
-        if 1.4 < explosion_time < 1.8:
-            # Spawn 3-5 secondary particles
-            num_secondary = 3 + ((seed + particle_id) % 3)
+        # Secondary bursts - longer duration and more visible
+        if 0.8 < explosion_time < 2.5:  # Longer window: 0.8-2.5s instead of 1.4-1.8s
+            # Spawn 4-6 secondary particles
+            num_secondary = 4 + ((seed + particle_id) % 3)
+            burst_start_time = 0.8
+            burst_progress = explosion_time - burst_start_time
+
             for sec_id in range(num_secondary):
                 sec_angle = (sec_id / num_secondary) * 2 * math.pi
-                sec_distance = (explosion_time - 1.4) * speed * 1.5
+                sec_distance = burst_progress * speed * 2.0  # Faster secondary particles
                 sec_px = px + sec_distance * math.cos(sec_angle)
                 sec_py = py + sec_distance * math.sin(sec_angle)
                 sec_px_int = int(sec_px)
                 sec_py_int = int(sec_py)
 
                 if 0 <= sec_px_int < width and 0 <= sec_py_int < height:
-                    # Brighter secondary particles
-                    sec_color = [
-                        min(255, int(faded_color[0] * 1.5)),
-                        min(255, int(faded_color[1] * 1.5)),
-                        min(255, int(faded_color[2] * 1.5))
-                    ]
-                    frame[sec_py_int, sec_px_int] = sec_color
+                    # Much brighter secondary particles that fade over time
+                    secondary_fade = 1.0 - (burst_progress / 1.7)  # Fade over 1.7s
+                    if secondary_fade > 0:
+                        sec_color = [
+                            min(255, int(faded_color[0] * 2.0 * secondary_fade)),
+                            min(255, int(faded_color[1] * 2.0 * secondary_fade)),
+                            min(255, int(faded_color[2] * 2.0 * secondary_fade))
+                        ]
+                        # Draw a 3x3 cluster for more visibility
+                        for dx in [-1, 0, 1]:
+                            for dy in [-1, 0, 1]:
+                                cluster_x = sec_px_int + dx
+                                cluster_y = sec_py_int + dy
+                                if 0 <= cluster_x < width and 0 <= cluster_y < height:
+                                    brightness_mult = 1.0 if (dx == 0 and dy == 0) else 0.5
+                                    cluster_color = [
+                                        int(sec_color[0] * brightness_mult),
+                                        int(sec_color[1] * brightness_mult),
+                                        int(sec_color[2] * brightness_mult)
+                                    ]
+                                    current = frame[cluster_y, cluster_x]
+                                    frame[cluster_y, cluster_x] = [
+                                        min(255, current[0] + cluster_color[0]),
+                                        min(255, current[1] + cluster_color[1]),
+                                        min(255, current[2] + cluster_color[2])
+                                    ]
 
     else:
         # Default rendering
