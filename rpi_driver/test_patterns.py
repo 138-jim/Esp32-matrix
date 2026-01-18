@@ -2105,14 +2105,13 @@ def _render_particle_with_effects(frame: np.ndarray, px: float, py: float,
             frame[py_int, px_int] = faded_color
 
         # Secondary bursts - VERY VISIBLE with bright white/yellow flashes
-        # Burst late in the explosion when particles are slowing down and about to fade
-        if 1.8 < explosion_time < 2.8:  # Active window: 1.8-2.8s (near end of 3s fade)
+        if 0.8 < explosion_time < 2.5:  # Active window: 0.8-2.5s
             # Spawn 6-8 secondary particles (more than before)
             num_secondary = 6 + ((seed + particle_id) % 3)
-            burst_start_time = 1.8
+            burst_start_time = 0.8
             burst_progress = explosion_time - burst_start_time
 
-            # Flash effect at burst moment (1.8-2.0s)
+            # Flash effect at burst moment (0.8-1.0s)
             if burst_progress < 0.2:
                 # Bright white flash at particle location
                 flash_intensity = 1.0 - (burst_progress / 0.2)
