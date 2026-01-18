@@ -10,7 +10,7 @@ import colorsys
 from datetime import datetime, timedelta
 from typing import Tuple
 from PIL import Image, ImageDraw, ImageFont
-import random
+
 
 # Perlin Noise Implementation
 class PerlinNoise:
@@ -1988,9 +1988,9 @@ def _apply_burst_physics(center_x: float, center_y: float, angle: float,
         # Drooping trails with stronger gravity and slower horizontal movement
         px = center_x + speed * explosion_time * math.cos(angle) * 0.6  # Slower horizontal
         py = center_y + speed * explosion_time * math.sin(angle) * 0.7  # Slower vertical
-        # Moderate gravity (2x) and gentle downward velocity for graceful droop
-        py -= explosion_time * explosion_time * 4  # Reduced from 6 to 4
-        py -= explosion_time * 1  # Reduced from 2 to 1 for even slower fall
+        # Stronger gravity (3x) and downward velocity bias
+        py -= explosion_time * explosion_time * 6
+        py -= explosion_time * 2  # Reduced from 3 to 2 for slower droop
 
     elif burst_type == 'palm':
         # Thick arcing trails, more vertical
@@ -2104,71 +2104,37 @@ def _render_particle_with_effects(frame: np.ndarray, px: float, py: float,
         if 0 <= px_int < width and 0 <= py_int < height:
             frame[py_int, px_int] = faded_color
 
-        # Secondary bursts - VERY VISIBLE with bright white/yellow flashes
-        if 0.8 < explosion_time < 2.5:  # Active window: 0.8-2.5s
-            # Spawn 6-8 secondary particles (more than before)
-            num_secondary = 3 + ((seed + particle_id) % 3)
+        # Secondary bursts - longer duration and more visible
+        if 0.8 < explosion_time < 2.5:  # Longer window: 0.8-2.5s instead of 1.4-1.8s
+            # Spawn 4-6 secondary particles
+            num_secondary = 4 + ((seed + particle_id) % 3)
             burst_start_time = 0.8
             burst_progress = explosion_time - burst_start_time
 
-            # Flash effect at burst moment (0.8-1.0s)
-            if burst_progress < 0.2:
-                # Bright white flash at particle location
-                flash_intensity = 1.0 - (burst_progress / 0.2)
-                flash_size = 1
-                for fdx in range(-flash_size, flash_size + 1):
-                    for fdy in range(-flash_size, flash_size + 1):
-                        flash_x = px_int + (fdx * 0.5)
-                        flash_y = py_int + (fdy * 0.5)
-                        if 0 <= flash_x < width and 0 <= flash_y < height:
-                            flash_color = int(122 * flash_intensity)
-                            current = frame[flash_y, flash_x]
-                            frame[flash_y, flash_x] = [
-                                random(255, current[0]),
-                                random(255, current[1]),
-                                random(255, current[2])
-                            ]
-
             for sec_id in range(num_secondary):
                 sec_angle = (sec_id / num_secondary) * 2 * math.pi
-                sec_distance = burst_progress * speed * 2  # Even faster secondary particles
+                sec_distance = burst_progress * speed * 2.0  # Faster secondary particles
                 sec_px = px + sec_distance * math.cos(sec_angle)
                 sec_py = py + sec_distance * math.sin(sec_angle)
                 sec_px_int = int(sec_px)
                 sec_py_int = int(sec_py)
 
                 if 0 <= sec_px_int < width and 0 <= sec_py_int < height:
-                    # Bright secondary particles that fade over time
+                    # Much brighter secondary particles that fade over time
                     secondary_fade = 1.0 - (burst_progress / 1.7)  # Fade over 1.7s
                     if secondary_fade > 0:
-                        # Use bright yellow/white for high visibility (instead of parent color)
-                        # Mix original color with white for a "hot" look
-                        white_mix = 0.7  # 70% white, 30% original color
                         sec_color = [
-                            min(255, int((faded_color[0] * (1 - white_mix) + 255 * white_mix) * 3.0 * secondary_fade)),
-                            min(255, int((faded_color[1] * (1 - white_mix) + 255 * white_mix) * 3.0 * secondary_fade)),
-                            min(255, int((faded_color[2] * (1 - white_mix) + 200 * white_mix) * 3.0 * secondary_fade))
+                            min(255, int(faded_color[0] * 2.0 * secondary_fade)),
+                            min(255, int(faded_color[1] * 2.0 * secondary_fade)),
+                            min(255, int(faded_color[2] * 2.0 * secondary_fade))
                         ]
-
-                        # Draw a 5x5 cluster for maximum visibility
-                        for dx in range(-2, 3):
-                            for dy in range(-2, 3):
+                        # Draw a 3x3 cluster for more visibility
+                        for dx in [-1, 0, 1]:
+                            for dy in [-1, 0, 1]:
                                 cluster_x = sec_px_int + dx
                                 cluster_y = sec_py_int + dy
                                 if 0 <= cluster_x < width and 0 <= cluster_y < height:
-                                    # Gaussian-like falloff from center
-                                    dist = abs(dx) + abs(dy)
-                                    if dist == 0:
-                                        brightness_mult = 1.0
-                                    elif dist <= 1:
-                                        brightness_mult = 0.8
-                                    elif dist <= 2:
-                                        brightness_mult = 0.6
-                                    elif dist <= 3:
-                                        brightness_mult = 0.4
-                                    else:
-                                        brightness_mult = 0.2
-
+                                    brightness_mult = 1.0 if (dx == 0 and dy == 0) else 0.5
                                     cluster_color = [
                                         int(sec_color[0] * brightness_mult),
                                         int(sec_color[1] * brightness_mult),
@@ -2313,23 +2279,23 @@ def fireworks(width: int, height: int, offset: float = 0) -> np.ndarray:
                     # Palm burst: render thicker particles (3-5 pixels wide)
                     if burst_type == 'palm' and fade > 0:
                         faded_color = [
-                            int(base_color[0] * fade * 2),
-                            int(base_color[1] * fade * 2),
-                            int(base_color[2] * fade * 2)
+                            int(base_color[0] * fade),
+                            int(base_color[1] * fade),
+                            int(base_color[2] * fade)
                         ]
                         # Draw thicker particles
                         for dx in [-1, 0, 1]:
                             for dy in [-1, 0, 1]:
-                                thick_px = int(px)
-                                thick_py = int(py)
+                                thick_px = int(px) + dx
+                                thick_py = int(py) + dy
                                 if 0 <= thick_px < width and 0 <= thick_py < height:
                                     if dx == 0 and dy == 0:
                                         continue  # Already drawn by main render
                                     # Dimmer for outer pixels
                                     dim_color = [
-                                        int(faded_color[0] * 0.5),
-                                        int(faded_color[1] * 0.5),
-                                        int(faded_color[2] * 0.5)
+                                        int(faded_color[0] * 0.6),
+                                        int(faded_color[1] * 0.6),
+                                        int(faded_color[2] * 0.6)
                                     ]
                                     current = frame[thick_py, thick_px]
                                     frame[thick_py, thick_px] = [
